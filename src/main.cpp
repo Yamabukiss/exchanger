@@ -179,7 +179,7 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec,bool shape_signal
     geometry_msgs::TransformStamped pose_in , pose_out;
 
     tf2::Quaternion tf_quaternion;
-    tf_quaternion.setRPY(y,p,r);
+    tf_quaternion.setRPY(r,p,y);
     geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion);
 
     pose_in.transform.rotation.x = quat_msg.x;
@@ -310,7 +310,6 @@ void Exchanger::imgProcess() {
         auto moment = cv::moments(hull_vec[0]);
         if (approx_points.size() == 3)
         {
-
             cv::Point2d centroid(moment.m10 / moment.m00, moment.m01 / moment.m00);
             int llength_index[2];
             getLongLength(llength_index,approx_points);
@@ -327,12 +326,12 @@ void Exchanger::imgProcess() {
                 if (signal)
                 {
                     approx_points.push_back(mid_edge_point);
-                    cv::solvePnP(arrow_left_points1_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_left_rvec_,arrow_left_tvec_,bool(),cv::SOLVEPNP_P3P);
+                    cv::solvePnP(arrow_left_points1_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_rvec_,arrow_tvec_,bool(),cv::SOLVEPNP_P3P);
                 }
                 else
                 {
                     approx_points.push_back(mid_edge_point);
-                    cv::solvePnP(arrow_left_points2_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_left_rvec_,arrow_left_tvec_,bool(),cv::SOLVEPNP_P3P);
+                    cv::solvePnP(arrow_left_points2_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_rvec_,arrow_tvec_,bool(),cv::SOLVEPNP_P3P);
                 }
             }
             else
@@ -340,16 +339,16 @@ void Exchanger::imgProcess() {
                 if (signal)
                 {
                     approx_points.push_back(mid_edge_point);
-                    cv::solvePnP(arrow_right_points1_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_left_rvec_,arrow_left_tvec_,bool(),cv::SOLVEPNP_P3P);
+                    cv::solvePnP(arrow_right_points1_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_rvec_,arrow_tvec_,bool(),cv::SOLVEPNP_P3P);
                 }
                 else
                 {
                     approx_points.push_back(mid_edge_point);
-                    cv::solvePnP(arrow_right_points2_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_left_rvec_,arrow_left_tvec_,bool(),cv::SOLVEPNP_P3P);
+                    cv::solvePnP(arrow_right_points2_vec_,approx_points,camera_matrix_,distortion_coefficients_,arrow_rvec_,arrow_tvec_,bool(),cv::SOLVEPNP_P3P);
                 }
             }
             shape_signal_ = false;
-            getPnP(arrow_left_rvec_,arrow_left_tvec_,shape_signal_);
+            getPnP(arrow_rvec_,arrow_tvec_,shape_signal_);
         }
         else
         {

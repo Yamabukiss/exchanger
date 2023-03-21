@@ -65,8 +65,8 @@ public:
     std::vector<cv::Point3f> arrow_right_points2_vec_;
     cv::Mat exchanger_rvec_;
     cv::Mat exchanger_tvec_;
-    cv::Mat arrow_left_rvec_;
-    cv::Mat arrow_left_tvec_;
+    cv::Mat arrow_rvec_;
+    cv::Mat arrow_tvec_;
     ros::Publisher pnp_publisher_;
     ros::Publisher flag_publisher_;
     tf2_ros::Buffer tf_buffer_;
