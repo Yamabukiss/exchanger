@@ -34,7 +34,7 @@ public:
     int findMatchPoint(const cv::Point2f &rotate_point ,  const std::vector<cv::Point2i> &inline_points_vec);
     bool checkSequence(const cv::Point2i &p1,const cv::Point2i &p2,const cv::Point2i &p3);
     bool checkArrowSequence(const cv::Point2i &p1,const cv::Point2i &p2,const cv::Point2i &p3);
-    void getPnP(const cv::Mat &rvec,const cv::Mat &tvec,bool shape_signal);
+    void getPnP(const cv::Mat &rvec,const cv::Mat &tvec);
     bool checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec);
     void getLongLength(int * llength_index,const std::vector<cv::Point2f> &approx_points);
     float getLineLength(const cv::Point2f & p1,const cv::Point2f & p2);

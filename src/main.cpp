@@ -148,10 +148,16 @@ bool Exchanger::checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec)
     else return false;
 }
 
-void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec,bool shape_signal)
+void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 {
     cv::Mat r_mat = cv::Mat_<double>(3, 3);
 
+    if (rvec.empty())
+    {
+        ROS_INFO("opencv mat bug,return and pose nonsense pnp");
+        poseNonSensePnP();
+        return;
+    }
     cv::Rodrigues(rvec, r_mat);
     tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
                                    r_mat.at<double>(1, 0), r_mat.at<double>(1, 1), r_mat.at<double>(1, 2),
@@ -326,7 +332,7 @@ void Exchanger::imgProcess() {
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
         else cv::solvePnP(w_points1_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
         shape_signal_ = true;
-        getPnP(exchanger_rvec_,exchanger_tvec_,shape_signal_);
+        getPnP(exchanger_rvec_,exchanger_tvec_);
     }
     else if (!hull_vec.empty() && checkArrow(hull_vec))
     {
@@ -374,7 +380,7 @@ void Exchanger::imgProcess() {
                 }
             }
             shape_signal_ = false;
-            getPnP(arrow_left_rvec_,arrow_left_tvec_,shape_signal_);
+            getPnP(arrow_left_rvec_,arrow_left_tvec_);
         }
         else
         {
