@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
         pluginlib
         dynamic_reconfigure
         tf
+        rm_msgs
         )
 
 find_package(OpenCV REQUIRED)
@@ -18,7 +19,7 @@ generate_dynamic_reconfigure_options(
 
 catkin_package(
         INCLUDE_DIRS include
-        CATKIN_DEPENDS roscpp cv_bridge dynamic_reconfigure nodelet
+        CATKIN_DEPENDS roscpp cv_bridge dynamic_reconfigure nodelet rm_msgs
         LIBRARIES ${PROJECT_NAME}
 )
 

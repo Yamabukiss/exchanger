@@ -6,7 +6,7 @@ void Exchanger::onInit()
     binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_bianry_publisher", 1);
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
-    pnp_publisher_ = nh_.advertise<geometry_msgs::Pose>("pnp_publisher", 1);
+    pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>("pnp_publisher", 1);
 
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
     server_.setCallback(callback_);
@@ -52,7 +52,7 @@ void Exchanger::onInit()
     arrow_right_points2_vec_.push_back(cv::Point3f(0,0,0)); //mid
 
 
-    cv::Mat temp_triangle=cv::imread("/home/yamabuki/detect_ws/src/exchanger/temp_triangle.png",cv::IMREAD_GRAYSCALE);
+    cv::Mat temp_triangle=cv::imread("/home/dynamicx/rm_ws/src/exchanger/temp_triangle.png",cv::IMREAD_GRAYSCALE);
 
     cv::Mat binary_1;
 
@@ -85,6 +85,7 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
 void Exchanger::receiveFromCam(const sensor_msgs::ImageConstPtr& image)
 {
     cv_image_ = boost::make_shared<cv_bridge::CvImage>(*cv_bridge::toCvShare(image, image->encoding));
+    ros::Duration(0.3).sleep();
     imgProcess();
     segmentation_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
 //    getTemplateImg();
@@ -161,51 +162,65 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec,bool shape_signal
     double p;
     double y;
 
-    static geometry_msgs::Pose  pose;
+    rm_msgs::ExchangerMsg msg;
+    msg.flag = 1;
+    if (shape_signal_) msg.shape = 1;
+    else msg.shape = 0;
 
-    pose.position.x=tvec.at<double>(0,0);
-    pose.position.y=tvec.at<double>(0,1);
-    pose.position.z=tvec.at<double>(0,2);
+    msg.pose.position.x=tvec.at<double>(0,0);
+    msg.pose.position.y=tvec.at<double>(0,1);
+    msg.pose.position.z=tvec.at<double>(0,2);
 
     tf_rotate_matrix.getRPY(r, p, y);
     quaternion.setRPY(r,p,y);
-    pose.orientation.x=quaternion.x();
-    pose.orientation.y=quaternion.y();
-    pose.orientation.z=quaternion.z();
-    pose.orientation.w=quaternion.w();
+    msg.pose.orientation.x=quaternion.x();
+    msg.pose.orientation.y=quaternion.y();
+    msg.pose.orientation.z=quaternion.z();
+    msg.pose.orientation.w=quaternion.w();
 
-    pnp_publisher_.publish(pose);
+   // pnp_publisher_.publish(pose);
 
-    geometry_msgs::TransformStamped pose_in , pose_out;
+//    geometry_msgs::TransformStamped pose_in , pose_out;
 
     tf2::Quaternion tf_quaternion;
-    tf_quaternion.setRPY(y,p,r);
+    //here
+   // tf_quaternion.setRPY(y,-r,-p);
+    tf_quaternion.setRPY(r,p,y);
     geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion);
 
-    pose_in.transform.rotation.x = quat_msg.x;
-    pose_in.transform.rotation.y = quat_msg.y;
-    pose_in.transform.rotation.z = quat_msg.z;
-    pose_in.transform.rotation.w = quat_msg.w;
+//    pose_in.transform.rotation.x = quat_msg.x;
+//    pose_in.transform.rotation.y = quat_msg.y;
+//    pose_in.transform.rotation.z = quat_msg.z;
+//    pose_in.transform.rotation.w = quat_msg.w;
 
-//    tf2::doTransform(pose_in, pose_out, tf_buffer_.lookupTransform("camera_optical_frame", "base_link", ros::Time(0)));
+    //tf2::doTransform(pose_in, pose_out, tf_buffer_.lookupTransform("camera_optical_frame", "base_link", ros::Time(0)));
 
-    pose_out.transform.translation.x = pose.position.x;
-    pose_out.transform.translation.y = pose.position.y;
-    pose_out.transform.translation.z = pose.position.z;
+//    pose_out.transform.translation.x = msg.pose.position.x;
+//    pose_out.transform.translation.y = msg.pose.position.y;
+//    pose_out.transform.translation.z = msg.pose.position.z;
 
     tf::Transform transform;
 
 //    transform.setOrigin(tf::Vector3(pose_out.transform.translation.x, pose_out.transform.translation.y,
-//                                    pose_out.transform.translation.z));
-//    transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
-//                                         pose_out.transform.rotation.z, pose_out.transform.rotation.w));
+  //                                  pose_out.transform.translation.z));
+  //
+  //transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
+  //pose_out.transform.rotation.z, pose_out.transform.rotation.w));
+ //   transform.setRotation(tf::Quaternion(pose_in.transform.rotation.x, pose_in.transform.rotation.y,
+   //                                      pose_in.transform.rotation.z, pose_in.transform.rotation.w));
 
-    transform.setOrigin(tf::Vector3(pose.position.x, pose.position.y,
-                                    pose.position.z));
-    transform.setRotation(tf::Quaternion(pose.orientation.x, pose.orientation.y,
-                                         pose.orientation.z, pose.orientation.w));
-    if (shape_signal) tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_optical_frame", "exchanger"));
-    else  tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_optical_frame", "arrow"));
+  transform.setOrigin(tf::Vector3(msg.pose.position.x, msg.pose.position.y,
+                                  msg.pose.position.z));
+    transform.setRotation(tf::Quaternion(msg.pose.orientation.x, msg.pose.orientation.y,
+                                         msg.pose.orientation.z, msg.pose.orientation.w));
+
+ 
+//    msg.pose.orientation.x=pose_out.transform.rotation.x;
+//    msg.pose.orientation.y=pose_out.transform.rotation.y;
+//    msg.pose.orientation.z=pose_out.transform.rotation.z;
+//    msg.pose.orientation.w=pose_out.transform.rotation.w;
+    pnp_publisher_.publish(msg);
+    tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_optical_frame", "exchanger"));
 }
 
 float Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
@@ -228,6 +243,16 @@ void Exchanger::getLongLength(int *llength_index, const std::vector<cv::Point2f>
         llength_index[1] = 2;
     }
 
+}
+
+inline void Exchanger::poseNonSensePnP()
+{
+    rm_msgs::ExchangerMsg msg;
+    msg.flag = 0;
+    msg.pose.position.x = 2;
+    msg.pose.position.y = 2;
+    msg.pose.position.z = 2;
+    pnp_publisher_.publish(msg);
 }
 
 void Exchanger::imgProcess() {
@@ -354,7 +379,12 @@ void Exchanger::imgProcess() {
         else
         {
             ROS_INFO("wrong arrow matches");
+            poseNonSensePnP();
         }
+    }
+    else
+    {
+        poseNonSensePnP();
     }
 }
 

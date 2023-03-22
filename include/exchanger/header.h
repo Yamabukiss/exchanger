@@ -21,6 +21,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#include "rm_msgs/ExchangerMsg.h"
 
 class Exchanger
 {
@@ -37,6 +38,7 @@ public:
     bool checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec);
     void getLongLength(int * llength_index,const std::vector<cv::Point2f> &approx_points);
     float getLineLength(const cv::Point2f & p1,const cv::Point2f & p2);
+    void poseNonSensePnP();
     ros::NodeHandle nh_;
     cv_bridge::CvImagePtr cv_image_;
     ros::Subscriber img_subscriber_;
@@ -68,7 +70,6 @@ public:
     cv::Mat arrow_left_rvec_;
     cv::Mat arrow_left_tvec_;
     ros::Publisher pnp_publisher_;
-    ros::Publisher flag_publisher_;
     tf2_ros::Buffer tf_buffer_;
     tf::TransformBroadcaster tf_broadcaster_;
 };

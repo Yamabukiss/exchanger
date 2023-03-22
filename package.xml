@@ -55,7 +55,7 @@
   <depend>cv_bridge</depend>
   <depend>nodelet</depend>
   <depend>dynamic_reconfigure</depend>
-
+  <depend>rm_msgs</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
