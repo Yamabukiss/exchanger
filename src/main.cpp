@@ -2,7 +2,7 @@
 
 void Exchanger::onInit()
 {
-    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Exchanger::receiveFromCam,this);
+    img_subscriber_= nh_.subscribe("/hk_camera/image_raw/compressed", 1, &Exchanger::receiveFromCam,this);
     binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_bianry_publisher", 1);
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
@@ -52,7 +52,7 @@ void Exchanger::onInit()
     arrow_right_points2_vec_.push_back(cv::Point3f(0,0,0)); //mid
 
 
-    cv::Mat temp_triangle=cv::imread("/home/dynamicx/rm_ws/src/exchanger/temp_triangle.png",cv::IMREAD_GRAYSCALE);
+    cv::Mat temp_triangle=cv::imread("/home/yamabuki/detect_ws/src/exchanger/temp_triangle.png",cv::IMREAD_GRAYSCALE);
 
     cv::Mat binary_1;
 
@@ -79,13 +79,29 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     save_on_=config.save_on;
     triangle_moment_bias_=config.triangle_moment_bias;
     triangle_approx_epsilon_=config.triangle_approx_epsilon;
+    triangle_area_threshold_ = config.triangle_area_threshold;
+    
+    red_lower_hsv_h_=config.red_lower_hsv_h;
+    red_lower_hsv_s_=config.red_lower_hsv_s;
+    red_lower_hsv_v_=config.red_lower_hsv_v;
+    red_upper_hsv_h_=config.red_upper_hsv_h;
+    red_upper_hsv_s_=config.red_upper_hsv_s;
+    red_upper_hsv_v_=config.red_upper_hsv_v;
+    
+    blue_lower_hsv_h_=config.blue_lower_hsv_h;
+    blue_lower_hsv_s_=config.blue_lower_hsv_s;
+    blue_lower_hsv_v_=config.blue_lower_hsv_v;
+    blue_upper_hsv_h_=config.blue_upper_hsv_h;
+    blue_upper_hsv_s_=config.blue_upper_hsv_s;
+    blue_upper_hsv_v_=config.blue_upper_hsv_v;
+    red_=config.red;
 }
 
 
-void Exchanger::receiveFromCam(const sensor_msgs::ImageConstPtr& image)
+void Exchanger::receiveFromCam(const sensor_msgs::CompressedImage& msg)
 {
-    cv_image_ = boost::make_shared<cv_bridge::CvImage>(*cv_bridge::toCvShare(image, image->encoding));
-    ros::Duration(0.3).sleep();
+    cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
+//    ros::Duration(0.3).sleep();
     imgProcess();
     segmentation_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
 //    getTemplateImg();
@@ -264,11 +280,14 @@ inline void Exchanger::poseNonSensePnP()
 void Exchanger::imgProcess() {
     //segementation
     auto *mor_ptr = new cv::Mat();
-    auto * gray_ptr= new cv::Mat();
+    auto * hsv_ptr= new cv::Mat();
     auto *binary_ptr = new cv::Mat();
-    cv::cvtColor(cv_image_->image, *gray_ptr, cv::COLOR_BGR2GRAY);
-    cv::threshold(*gray_ptr,*binary_ptr,0,255,CV_THRESH_BINARY + CV_THRESH_OTSU);
-    delete gray_ptr;
+    cv::cvtColor(cv_image_->image, *hsv_ptr, cv::COLOR_BGR2HSV);
+    if (red_)
+        cv::inRange(*hsv_ptr,cv::Scalar(red_lower_hsv_h_,red_lower_hsv_s_,red_lower_hsv_v_),cv::Scalar(red_upper_hsv_h_,red_upper_hsv_s_,red_upper_hsv_v_),*binary_ptr);
+    else
+        cv::inRange(*hsv_ptr,cv::Scalar(blue_lower_hsv_h_,blue_lower_hsv_s_,blue_lower_hsv_v_),cv::Scalar(blue_upper_hsv_h_,blue_upper_hsv_s_,blue_upper_hsv_v_),*binary_ptr);
+    delete hsv_ptr;
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * morph_size_, 1 + 2 * morph_size_),
                                                cv::Point(-1, -1));
     cv::morphologyEx(*binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
@@ -334,14 +353,13 @@ void Exchanger::imgProcess() {
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
-    else if (!hull_vec.empty() && checkArrow(hull_vec))
+    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > triangle_area_threshold_)
     {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
         auto moment = cv::moments(hull_vec[0]);
-        if (approx_points.size() == 3)
+        if (approx_points.size() == 3 )
         {
-
             cv::Point2d centroid(moment.m10 / moment.m00, moment.m01 / moment.m00);
             int llength_index[2];
             getLongLength(llength_index,approx_points);

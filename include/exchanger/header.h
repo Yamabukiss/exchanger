@@ -20,14 +20,14 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
+#include "sensor_msgs/CompressedImage.h"
 #include "rm_msgs/ExchangerMsg.h"
 
 class Exchanger
 {
 public:
     void onInit();
-    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
+    void receiveFromCam(const sensor_msgs::CompressedImage &image);
     void dynamicCallback(exchanger::dynamicConfig& config);
     void imgProcess();
     void getTemplateImg();
@@ -47,10 +47,27 @@ public:
     ros::Publisher camera_pose_publisher_;
     dynamic_reconfigure::Server<exchanger::dynamicConfig> server_;
     dynamic_reconfigure::Server<exchanger::dynamicConfig>::CallbackType callback_;
-
+    
+    bool red_;
     int morph_type_;
     int morph_iterations_;
     int morph_size_;
+    int triangle_area_threshold_;
+    
+    int red_lower_hsv_h_;
+    int red_lower_hsv_s_;
+    int red_lower_hsv_v_;
+    int red_upper_hsv_h_;
+    int red_upper_hsv_s_;
+    int red_upper_hsv_v_;
+    
+    int blue_lower_hsv_h_;
+    int blue_lower_hsv_s_;
+    int blue_lower_hsv_v_;
+    int blue_upper_hsv_h_;
+    int blue_upper_hsv_s_;
+    int blue_upper_hsv_v_;
+    
     cv::Mat camera_matrix_;
     cv::Mat distortion_coefficients_;
     std::vector<cv::Point> temp_triangle_hull_;
