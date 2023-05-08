@@ -2,18 +2,24 @@
 
 void Exchanger::onInit()
 {
-    img_subscriber_= nh_.subscribe("/hk_camera/image_raw/compressed", 1, &Exchanger::receiveFromCam,this);
-    binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_bianry_publisher", 1);
+    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Exchanger::receiveFromCam,this);
+    binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_binary_publisher", 1);
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
     pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>("pnp_publisher", 1);
 
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
     server_.setCallback(callback_);
-    camera_matrix_ = (cv::Mat_<float>(3, 3) << 1805.52667,    0.     ,  716.03783,
-            0.     , 1803.61747,  532.87966,
+    // hk camera 6mm
+//    camera_matrix_ = (cv::Mat_<float>(3, 3) << 1805.52667,    0.     ,  716.03783,
+//            0.     , 1803.61747,  532.87966,
+//            0.     ,    0.     ,    1.     );
+//    distortion_coefficients_=(cv::Mat_<float>(1,5) <<-0.074709, 0.138271, -0.001170, -0.000512, 0.000000);
+    // hk camera 8mm
+    camera_matrix_ = (cv::Mat_<float>(3, 3) << 2386.00138,    0.     ,  725.60265,
+            0.     , 2384.96008,  544.06952,
             0.     ,    0.     ,    1.     );
-    distortion_coefficients_=(cv::Mat_<float>(1,5) <<-0.074709, 0.138271, -0.001170, -0.000512, 0.000000);
+    distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.030441, 0.187520, 0.000082, -0.001058, 0.000000);
 
     w_points1_vec_.reserve(4);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
@@ -52,16 +58,16 @@ void Exchanger::onInit()
     arrow_right_points2_vec_.push_back(cv::Point3f(0,0,0)); //mid
 
 
-    cv::Mat temp_triangle=cv::imread("/home/yamabuki/detect_ws/src/exchanger/temp_triangle.png",cv::IMREAD_GRAYSCALE);
+    cv::Mat temp_triangle=cv::imread(ros::package::getPath("exchanger")+"/temp_triangle.png",cv::IMREAD_GRAYSCALE);
 
     cv::Mat binary_1;
 
-    cv::threshold(temp_triangle,binary_1,0, 255, CV_THRESH_BINARY + cv::THRESH_OTSU);
+    cv::threshold(temp_triangle,binary_1,0, 255, CV_THRESH_BINARY_INV + cv::THRESH_OTSU);
 
     std::vector<std::vector<cv::Point>> tri_temp_contour;
     std::vector<cv::Point> tri_hull;
-
     cv::findContours(binary_1,tri_temp_contour,cv::RETR_EXTERNAL,CV_CHAIN_APPROX_SIMPLE);
+    std::sort(tri_temp_contour.begin(), tri_temp_contour.end(), [](const auto &v1, const auto &v2){ return cv::contourArea(v1) > cv::contourArea(v2);});
 
     cv::convexHull(tri_temp_contour[0],tri_hull, true);
     temp_triangle_hull_=tri_hull;
@@ -79,7 +85,7 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     save_on_=config.save_on;
     triangle_moment_bias_=config.triangle_moment_bias;
     triangle_approx_epsilon_=config.triangle_approx_epsilon;
-    triangle_area_threshold_ = config.triangle_area_threshold;
+    arrow_area_threshold_ = config.arrow_area_threshold;
     
     red_lower_hsv_h_=config.red_lower_hsv_h;
     red_lower_hsv_s_=config.red_lower_hsv_s;
@@ -94,11 +100,12 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     blue_upper_hsv_h_=config.blue_upper_hsv_h;
     blue_upper_hsv_s_=config.blue_upper_hsv_s;
     blue_upper_hsv_v_=config.blue_upper_hsv_v;
+    min_triangle_threshold_=config.min_triangle_threshold;
     red_=config.red;
 }
 
 
-void Exchanger::receiveFromCam(const sensor_msgs::CompressedImage& msg)
+void Exchanger::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
     cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
 //    ros::Duration(0.3).sleep();
@@ -114,7 +121,7 @@ void Exchanger::getTemplateImg()
     segmentation_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),"mono8" , gray_img).toImageMsg());
     if (save_on_)
     {
-        cv::imwrite("/home/yamabuki/detect_ws/src/exchanger/temp_img.jpg",gray_img);
+        cv::imwrite("/home/dynamicx/rm_ws/src/exchanger/temp_img.jpg",gray_img);
     }
 }
 
@@ -307,7 +314,8 @@ void Exchanger::imgProcess() {
 
         std::vector<cv::Point2i> approx_points;
         cv::approxPolyDP(hull, approx_points, triangle_approx_epsilon_, true);
-        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && approx_points.size() == 3)
+        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && cv::contourArea(hull) >= min_triangle_threshold_ && (approx_points.size() == 3 || approx_points.size() == 2))
+//        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_)
         {
             for (auto &point : approx_points) cv::circle(cv_image_->image,point,3,cv::Scalar(255,255,255),3);
             int cx = int(moment.m10 / moment.m00);
@@ -353,7 +361,7 @@ void Exchanger::imgProcess() {
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
-    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > triangle_area_threshold_)
+    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_)
     {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
