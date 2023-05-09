@@ -35,8 +35,10 @@ public:
     void getPnP(const cv::Mat &rvec,const cv::Mat &tvec);
     bool checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec);
     void getLongLength(int * llength_index,const std::vector<cv::Point2f> &approx_points);
-    float getLineLength(const cv::Point2f & p1,const cv::Point2f & p2);
+    void combinationSolver(const std::vector<cv::Point2i> &inline_points_vec, int start, int k, std::vector<cv::Point2i> &combination_vec, std::vector<std::vector<cv::Point2i>> &combination_save_vec);
+    double getLineLength(const cv::Point2f & p1,const cv::Point2f & p2);
     void poseNonSensePnP();
+    bool findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const std::vector<cv::Point2i> &inline_points_vec, std::vector<cv::Point2i> &combination_result_vec);
     ros::NodeHandle nh_;
     cv_bridge::CvImagePtr cv_image_;
     ros::Subscriber img_subscriber_;
@@ -66,7 +68,8 @@ public:
     int blue_upper_hsv_h_;
     int blue_upper_hsv_s_;
     int blue_upper_hsv_v_;
-    
+    int max_variance_threshold_;
+
     cv::Mat camera_matrix_;
     cv::Mat distortion_coefficients_;
     std::vector<cv::Point> temp_triangle_hull_;
@@ -85,6 +88,7 @@ public:
     cv::Mat exchanger_tvec_;
     cv::Mat arrow_left_rvec_;
     cv::Mat arrow_left_tvec_;
+    rm_msgs::ExchangerMsg prev_msg_;
     ros::Publisher pnp_publisher_;
     tf2_ros::Buffer tf_buffer_;
     tf::TransformBroadcaster tf_broadcaster_;

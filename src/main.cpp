@@ -101,6 +101,7 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     blue_upper_hsv_s_=config.blue_upper_hsv_s;
     blue_upper_hsv_v_=config.blue_upper_hsv_v;
     min_triangle_threshold_=config.min_triangle_threshold;
+    max_variance_threshold_=config.max_variance_threshold;
     red_=config.red;
 }
 
@@ -249,10 +250,11 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 //    msg.pose.orientation.z=pose_out.transform.rotation.z;
 //    msg.pose.orientation.w=pose_out.transform.rotation.w;
     pnp_publisher_.publish(msg);
+    prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_optical_frame", "exchanger"));
 }
 
-float Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
+inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
 {
     return sqrt(pow((p1.x-p2.x),2) + pow((p1.y-p2.y),2));
 }
@@ -277,11 +279,60 @@ void Exchanger::getLongLength(int *llength_index, const std::vector<cv::Point2f>
 inline void Exchanger::poseNonSensePnP()
 {
     rm_msgs::ExchangerMsg msg;
+    msg = prev_msg_;
     msg.flag = 0;
-    msg.pose.position.x = 2;
-    msg.pose.position.y = 2;
-    msg.pose.position.z = 2;
+//    msg.pose.position.x = 2;
+//    msg.pose.position.y = 2;
+//    msg.pose.position.z = 2;
     pnp_publisher_.publish(msg);
+}
+
+void Exchanger::combinationSolver(const std::vector<cv::Point2i> &inline_points_vec, int start, int k, std::vector<cv::Point2i> &combination_vec,
+                       std::vector<std::vector<cv::Point2i>> &combination_save_vec)
+{
+    if (k == 0)
+    {
+        combination_save_vec.emplace_back(combination_vec);
+        return;
+    }
+
+    for (int i = start; i<= inline_points_vec.size()- k; i++)
+    {
+        combination_vec.emplace_back(inline_points_vec[i]);
+        combinationSolver(inline_points_vec, i+1, k-1, combination_vec,combination_save_vec);
+        combination_vec.pop_back();
+    }
+
+}
+
+bool Exchanger::findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const std::vector<cv::Point2i> &inline_points_vec, std::vector<cv::Point2i> &combination_result_vec)
+{
+    if (inline_points_vec.size() < 5 || inline_points_vec.size() > 7)
+        return false;
+    std::vector<std::pair<std::vector<cv::Point2i>,double>> point_variance_vec;
+    std::vector<cv::Point2i> combination_vec;
+    std::vector<std::vector<cv::Point2i>> combination_save_vec;
+    combinationSolver(inline_points_vec, 0, 4, combination_vec, combination_save_vec);
+    for (const auto &points_vec : combination_save_vec)
+    {
+        cv::Point2i middle_point = (points_vec[0] + points_vec[1] + points_vec[2] +points_vec[3]) / 4;
+        double distance1 = getLineLength(points_vec[0], middle_point);
+        double distance2 = getLineLength(points_vec[1], middle_point);
+        double distance3 = getLineLength(points_vec[2], middle_point);
+        double distance4 = getLineLength(points_vec[3], middle_point);
+        double mean_distance = (distance1 + distance2 + distance3 + distance4) / 4;
+        double variance = (pow(distance1 - mean_distance, 2) + pow(distance2 - mean_distance, 2) + pow(distance3 - mean_distance, 2) + pow(distance4 - mean_distance, 2)) / 4;
+        point_variance_vec.emplace_back(points_vec, variance);
+    }
+    std::sort(point_variance_vec.begin(), point_variance_vec.end(), [](const auto &v1, const auto &v2){return v1.second < v2.second;});
+    cv::Point2i middle_point = (point_variance_vec[0].first[0] + point_variance_vec[0].first[1] + point_variance_vec[0].first[2] +point_variance_vec[0].first[3]) / 4;
+    cv::circle(cv_image_->image, middle_point, 12, cv::Scalar(255,255,0),2);
+    cv::putText(cv_image_->image, std::to_string(point_variance_vec[0].second), middle_point, 1,1,cv::Scalar(255,255,255),2);
+    combination_result_vec = point_variance_vec[0].first;
+    if (point_variance_vec[0].second < max_variance_threshold_)
+        return true;
+    else
+        return false;
 }
 
 void Exchanger::imgProcess() {
@@ -305,6 +356,7 @@ void Exchanger::imgProcess() {
     cv::findContours(*mor_ptr, *contours_ptr, cv::RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
     delete mor_ptr;
     std::vector<cv::Point2i> inline_points_vec;
+    std::vector<cv::Point2i> rect_points_vec;
     std::vector<std::vector<cv::Point2i>> hull_vec;
     for (auto &contours: *contours_ptr)
     {
@@ -314,8 +366,10 @@ void Exchanger::imgProcess() {
 
         std::vector<cv::Point2i> approx_points;
         cv::approxPolyDP(hull, approx_points, triangle_approx_epsilon_, true);
-        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && cv::contourArea(hull) >= min_triangle_threshold_ && (approx_points.size() == 3 || approx_points.size() == 2))
+        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && cv::contourArea(hull) >= min_triangle_threshold_ && approx_points.size() > 1)
+//        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && cv::contourArea(hull) >= min_triangle_threshold_ && (approx_points.size() == 3 || approx_points.size() == 2))
 //        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_)
+//        if (cv::contourArea(hull) >= min_triangle_threshold_ && approx_points.size() > 1)
         {
             for (auto &point : approx_points) cv::circle(cv_image_->image,point,3,cv::Scalar(255,255,255),3);
             int cx = int(moment.m10 / moment.m00);
@@ -333,6 +387,10 @@ void Exchanger::imgProcess() {
     std::sort(tmp_hull_vec.begin(),tmp_hull_vec.end(),[](const auto &v1,const auto &v2){return cv::contourArea(v1)>cv::contourArea(v2);});
     bool polygon_signal = false;
     if(!tmp_hull_vec.empty()) polygon_signal = inline_points_vec.size()==4 && cv::contourArea(tmp_hull_vec[0])<3*cv::contourArea(tmp_hull_vec[1]);
+
+    std::vector<cv::Point2i> combination_result_vec;
+    bool rect_signal = findRectPoints(rect_points_vec, inline_points_vec, combination_result_vec);
+
     if (polygon_signal)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(inline_points_vec);
@@ -361,6 +419,7 @@ void Exchanger::imgProcess() {
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
+
     else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_)
     {
         std::vector<cv::Point2f> approx_points;
@@ -414,6 +473,36 @@ void Exchanger::imgProcess() {
             poseNonSensePnP();
         }
     }
+
+    else if (rect_signal)
+    {
+        cv::RotatedRect rotate_rect=cv::minAreaRect(combination_result_vec);
+        cv::Point2f vertex[4];
+        rotate_rect.points(vertex);
+        cv::Point2i match_points[4];
+        for (int i = 0; i < 4; i++)
+        {
+            auto match_point = combination_result_vec[findMatchPoint(vertex[i],combination_result_vec)];
+            match_points[i] = match_point;
+        }
+        std::vector<cv::Point2f> pixel_points_vec;
+        pixel_points_vec.reserve(4);
+        for (int i = 0;i<4 ;i++)
+        {
+            pixel_points_vec.emplace_back(match_points[i]);
+            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200),2);
+            cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,0),3);
+        }
+
+        // get pnp
+
+        bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
+        if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
+        else cv::solvePnP(w_points1_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
+        shape_signal_ = true;
+        getPnP(exchanger_rvec_,exchanger_tvec_);
+    }
+
     else
     {
         poseNonSensePnP();
