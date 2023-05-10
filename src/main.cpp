@@ -109,7 +109,7 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
 void Exchanger::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
     cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
-//    ros::Duration(0.3).sleep();
+    //ros::Duration(0.3).sleep();
     imgProcess();
     segmentation_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
 //    getTemplateImg();
@@ -122,7 +122,7 @@ void Exchanger::getTemplateImg()
     segmentation_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),"mono8" , gray_img).toImageMsg());
     if (save_on_)
     {
-        cv::imwrite("/home/dynamicx/rm_ws/src/exchanger/temp_img.jpg",gray_img);
+        cv::imwrite(ros::package::getPath("exchanger")+"/temp_img.jpg",gray_img);
     }
 }
 
@@ -215,8 +215,8 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     tf2::Quaternion tf_quaternion;
     //here
    // tf_quaternion.setRPY(y,-r,-p);
-    tf_quaternion.setRPY(r,p,y);
-    geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion);
+//    tf_quaternion.setRPY(r,p,y);
+//    geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion);
 
 //    pose_in.transform.rotation.x = quat_msg.x;
 //    pose_in.transform.rotation.y = quat_msg.y;
@@ -320,13 +320,17 @@ bool Exchanger::findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const 
         double distance2 = getLineLength(points_vec[1], middle_point);
         double distance3 = getLineLength(points_vec[2], middle_point);
         double distance4 = getLineLength(points_vec[3], middle_point);
-        double mean_distance = (distance1 + distance2 + distance3 + distance4) / 4;
-        double variance = (pow(distance1 - mean_distance, 2) + pow(distance2 - mean_distance, 2) + pow(distance3 - mean_distance, 2) + pow(distance4 - mean_distance, 2)) / 4;
+
+        double max_distance = std::max(distance1,distance2);
+        max_distance = std::max(max_distance,distance3);
+        max_distance = std::max(max_distance,distance4);
+
+//        double mean_distance = (distance1 + distance2 + distance3 + distance4) / 4;
+        double variance = (pow(distance1 - max_distance, 2) + pow(distance2 - max_distance, 2) + pow(distance3 - max_distance, 2) + pow(distance4 - max_distance, 2)) / 4;
         point_variance_vec.emplace_back(points_vec, variance);
     }
     std::sort(point_variance_vec.begin(), point_variance_vec.end(), [](const auto &v1, const auto &v2){return v1.second < v2.second;});
     cv::Point2i middle_point = (point_variance_vec[0].first[0] + point_variance_vec[0].first[1] + point_variance_vec[0].first[2] +point_variance_vec[0].first[3]) / 4;
-    cv::circle(cv_image_->image, middle_point, 12, cv::Scalar(255,255,0),2);
     cv::putText(cv_image_->image, std::to_string(point_variance_vec[0].second), middle_point, 1,1,cv::Scalar(255,255,255),2);
     combination_result_vec = point_variance_vec[0].first;
     if (point_variance_vec[0].second < max_variance_threshold_)
@@ -490,8 +494,8 @@ void Exchanger::imgProcess() {
         for (int i = 0;i<4 ;i++)
         {
             pixel_points_vec.emplace_back(match_points[i]);
-            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200),2);
-            cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,0),3);
+            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 255, 0),2);
+            cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,255),3);
         }
 
         // get pnp
