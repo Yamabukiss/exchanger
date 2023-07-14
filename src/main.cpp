@@ -103,6 +103,7 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     min_triangle_threshold_=config.min_triangle_threshold;
     max_variance_threshold_=config.max_variance_threshold;
     red_=config.red;
+    
 }
 
 double square(double in)
@@ -195,6 +196,12 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
         poseNonSensePnP();
         return;
     }
+
+    // the projection for the center of exchanger 
+    cv::Point2f projected_point;
+    cv::projectPoints(cv::Point3f(0, 0, 0), rvec, tvec, camera_matrix_, distortion_coefficients_, projected_point);
+    cv::circle(cv_image_->image, projected_point, 2, cv::Scalar(255, 255, 255), 3);
+    
     cv::Rodrigues(rvec, r_mat);
     tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
                                    r_mat.at<double>(1, 0), r_mat.at<double>(1, 1), r_mat.at<double>(1, 2),
