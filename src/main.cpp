@@ -3,6 +3,7 @@
 void Exchanger::onInit()
 {
     img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Exchanger::receiveFromCam,this);
+    tf_updated_subscriber_ = nh_.subscribe("/is_update_exchanger", 1, &Exchanger::receiveFromEng, this);
     binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_binary_publisher", 1);
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
@@ -24,14 +25,14 @@ void Exchanger::onInit()
     w_points1_vec_.reserve(4);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
-    w_points1_vec_.push_back(cv::Point3f(0.1265,-0.1265,0)); //rt
+    w_points1_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
     w_points1_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
 
     w_points2_vec_.reserve(4);
     w_points2_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
     w_points2_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points2_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
-    w_points2_vec_.push_back(cv::Point3f(0.1265,-0.1265,0)); //rt
+    w_points2_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
 
     arrow_left_points1_vec_.reserve(4);
     arrow_left_points1_vec_.push_back(cv::Point3f(0,0.100,0));//bottom
@@ -73,7 +74,7 @@ void Exchanger::onInit()
     temp_triangle_hull_=tri_hull;
     prev_msg_.pose.orientation.w = 1;
     static tf2_ros::TransformListener tfListener(tf_buffer_);
-
+    tf_update_ = true;
     std::cout<<"temp init finished"<<std::endl;
 }
 
@@ -103,7 +104,9 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     min_triangle_threshold_=config.min_triangle_threshold;
     max_variance_threshold_=config.max_variance_threshold;
     red_=config.red;
-    
+    small_offset_ = config.small_offset;
+    w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
+    w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
 }
 
 double square(double in)
@@ -111,6 +114,7 @@ double square(double in)
     double out = pow(in,2);
     return out;
 }
+
 void quatToRPY(const geometry_msgs::Quaternion& q, double& roll, double& pitch, double& yaw)
 {
     double as = std::min(-2. * (q.x * q.z - q.w * q.y), .99999);
@@ -119,6 +123,11 @@ void quatToRPY(const geometry_msgs::Quaternion& q, double& roll, double& pitch, 
     roll = std::atan2(2 * (q.y * q.z + q.w * q.x), square(q.w) - square(q.x) - square(q.y) + square(q.z));
 }
 
+void Exchanger::receiveFromEng(const std_msgs::BoolConstPtr &signal)
+{
+    bool is_update = signal->data;
+    tf_update_ = is_update;
+}
 
 void Exchanger::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -197,10 +206,18 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
         return;
     }
 
-    // the projection for the center of exchanger 
+    // the projection for the center of exchanger
+    cv::Point3f point_o(0, 0, 0);
     cv::Point2f projected_point;
-    cv::projectPoints(cv::Point3f(0, 0, 0), rvec, tvec, camera_matrix_, distortion_coefficients_, projected_point);
-    cv::circle(cv_image_->image, projected_point, 2, cv::Scalar(255, 255, 255), 3);
+    std::vector<cv::Point3f> w_points_vector;
+    std::vector<cv::Point2f> p_points_vector;
+    w_points_vector.reserve(1);
+    p_points_vector.reserve(1);
+    w_points_vector.emplace_back(point_o);
+    p_points_vector.emplace_back(projected_point);
+
+    cv::projectPoints(w_points_vector, rvec, tvec, camera_matrix_, distortion_coefficients_, p_points_vector);
+    cv::circle(cv_image_->image, p_points_vector[0], 2, cv::Scalar(255, 255, 255), 3);
     
     cv::Rodrigues(rvec, r_mat);
     tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
@@ -475,7 +492,7 @@ void Exchanger::imgProcess() {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
         auto moment = cv::moments(hull_vec[0]);
-        if (approx_points.size() == 3 )
+        if (approx_points.size() == 3 && tf_update_)
         {
             cv::Point2d centroid(moment.m10 / moment.m00, moment.m01 / moment.m00);
             int llength_index[2];
@@ -524,7 +541,7 @@ void Exchanger::imgProcess() {
         }
     }
 
-    else if (rect_signal)
+    else if (rect_signal && tf_update_)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(combination_result_vec);
         cv::Point2f vertex[4];

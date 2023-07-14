@@ -2,6 +2,7 @@
 #include <ros/package.h>
 #include <sensor_msgs/Image.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
 #include <algorithm>
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
@@ -27,6 +28,7 @@ class Exchanger
 public:
     void onInit();
     void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
+    void receiveFromEng(const std_msgs::BoolConstPtr &signal);
     void dynamicCallback(exchanger::dynamicConfig& config);
     void imgProcess();
     void getTemplateImg();
@@ -43,12 +45,14 @@ public:
     ros::NodeHandle nh_;
     cv_bridge::CvImagePtr cv_image_;
     ros::Subscriber img_subscriber_;
+    ros::Subscriber tf_updated_subscriber_;
     ros::Publisher binary_publisher_;
     ros::Publisher segmentation_publisher_;
     ros::Publisher camera_pose_publisher_;
     dynamic_reconfigure::Server<exchanger::dynamicConfig> server_;
     dynamic_reconfigure::Server<exchanger::dynamicConfig>::CallbackType callback_;
 
+    bool tf_update_;
     bool red_;
     int morph_type_;
     int morph_iterations_;
@@ -78,6 +82,7 @@ public:
     bool shape_signal_;
     bool direction_signal_;
     double triangle_moment_bias_;
+    double small_offset_;
     int triangle_approx_epsilon_;
     std::vector<cv::Point3f> w_points1_vec_;
     std::vector<cv::Point3f> w_points2_vec_;
