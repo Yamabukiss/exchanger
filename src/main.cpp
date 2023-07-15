@@ -8,7 +8,8 @@ void Exchanger::onInit()
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
     pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>("pnp_publisher", 1);
-
+    w_points2_vec_.reserve(4);
+    w_points1_vec_.reserve(4);
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
     server_.setCallback(callback_);
     // hk camera 6mm
@@ -21,14 +22,12 @@ void Exchanger::onInit()
             0.     , 1800.271523,  573.096989,
             0.     ,    0.     ,    1.     );
     distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.079576 ,0.191819 ,-0.001299, -0.000136, 0.000000);
-
-    w_points1_vec_.reserve(4);
+//    w_points1_vec_.reserve(4);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
     w_points1_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
     w_points1_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
-
-    w_points2_vec_.reserve(4);
+//    w_points2_vec_.reserve(4);
     w_points2_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
     w_points2_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points2_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
@@ -105,8 +104,9 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     max_variance_threshold_=config.max_variance_threshold;
     red_=config.red;
     small_offset_ = config.small_offset;
-    w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
-    w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
+    w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
+    w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
+    ROS_INFO_STREAM("--------------");
 }
 
 double square(double in)
