@@ -18,10 +18,10 @@ void Exchanger::onInit()
 //            0.     ,    0.     ,    1.     );
 //    distortion_coefficients_=(cv::Mat_<float>(1,5) <<-0.074709, 0.138271, -0.001170, -0.000512, 0.000000);
     // hk camera 8mm
-    camera_matrix_ = (cv::Mat_<float>(3, 3) << 1804.507987,    0.     ,  693.619918,
-            0.     , 1800.271523,  573.096989,
+    camera_matrix_ = (cv::Mat_<float>(3, 3) << 1811.208049,    0.     ,  692.262792,
+            0.     , 1811.768707,  576.194205,
             0.     ,    0.     ,    1.     );
-    distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.079576 ,0.191819 ,-0.001299, -0.000136, 0.000000);
+    distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.079091 ,0.108809 ,-0.000094, -0.000368, 0.000000);
 //    w_points1_vec_.reserve(4);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
