@@ -12,22 +12,15 @@ void Exchanger::onInit()
     w_points1_vec_.reserve(4);
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
     server_.setCallback(callback_);
-    // hk camera 6mm
-//    camera_matrix_ = (cv::Mat_<float>(3, 3) << 1805.52667,    0.     ,  716.03783,
-//            0.     , 1803.61747,  532.87966,
-//            0.     ,    0.     ,    1.     );
-//    distortion_coefficients_=(cv::Mat_<float>(1,5) <<-0.074709, 0.138271, -0.001170, -0.000512, 0.000000);
-    // hk camera 8mm
+
     camera_matrix_ = (cv::Mat_<float>(3, 3) << 1811.208049,    0.     ,  692.262792,
             0.     , 1811.768707,  576.194205,
             0.     ,    0.     ,    1.     );
     distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.079091 ,0.108809 ,-0.000094, -0.000368, 0.000000);
-//    w_points1_vec_.reserve(4);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
     w_points1_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
     w_points1_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
-//    w_points2_vec_.reserve(4);
     w_points2_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
     w_points2_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points2_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
@@ -106,7 +99,6 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     small_offset_ = config.small_offset;
     w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
     w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
-    ROS_INFO_STREAM("--------------");
 }
 
 double square(double in)
@@ -135,7 +127,6 @@ void Exchanger::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
     imgProcess();
     segmentation_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
     ros::Duration(0.1).sleep();
-//    getTemplateImg();
 }
 
 void Exchanger::getTemplateImg()
@@ -230,12 +221,9 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     double y;
 
     tf_rotate_matrix.getRPY(r, p, y);
-
     quaternion.setRPY(r,p,y);
 
-
     // upon for the origin pose and translation
-
     geometry_msgs::TransformStamped pose_in, pose_out;
 
     tf2::Quaternion tf_quaternion;
@@ -246,7 +234,6 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     pose_in.transform.translation.x = tvec.at<double>(0,0);
     pose_in.transform.translation.y = tvec.at<double>(0,1);
     pose_in.transform.translation.z = tvec.at<double>(0,2);
-
 
     pose_in.transform.rotation.x = quat_msg.x;
     pose_in.transform.rotation.y = quat_msg.y;
@@ -264,13 +251,10 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     }
 
     tf::Transform transform;
-
     transform.setOrigin(tf::Vector3(pose_out.transform.translation.x, pose_out.transform.translation.y,
                                     pose_out.transform.translation.z));
-
     transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
                                          pose_out.transform.rotation.z, pose_out.transform.rotation.w));
-
 
     double roll_temp, pitch_temp, yaw_temp;
     quatToRPY(pose_out.transform.rotation, roll_temp, pitch_temp, yaw_temp);
@@ -278,10 +262,8 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     yaw_temp +=CV_PI/2;
 
     tf2::Quaternion tmp_tf_quaternion;
-//    tmp_tf_quaternion.setRPY(roll_temp,pitch_temp,yaw_temp);
     tmp_tf_quaternion.setRPY(pitch_temp,-roll_temp,yaw_temp);
     geometry_msgs::Quaternion tmp_quat_msg = tf2::toMsg(tmp_tf_quaternion); // tmp for the pose
-//
     transform.setRotation(tf::Quaternion(tmp_quat_msg.x, tmp_quat_msg.y,
                                          tmp_quat_msg.z, tmp_quat_msg.w));
 
@@ -290,22 +272,14 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     if (shape_signal_) msg.shape = 1;
     else msg.shape = 0;
 
-
     msg.pose.position.x=pose_out.transform.translation.x;
     msg.pose.position.y=pose_out.transform.translation.y;
     msg.pose.position.z=pose_out.transform.translation.z;
-
-//    msg.pose.orientation.x=pose_out.transform.rotation.x;
-//    msg.pose.orientation.y=pose_out.transform.rotation.y;
-//    msg.pose.orientation.z=pose_out.transform.rotation.z;
-//    msg.pose.orientation.w=pose_out.transform.rotation.w;
 
     msg.pose.orientation.x=tmp_quat_msg.x;
     msg.pose.orientation.y=tmp_quat_msg.y;
     msg.pose.orientation.z=tmp_quat_msg.z;
     msg.pose.orientation.w=tmp_quat_msg.w;
-
-
 
     pnp_publisher_.publish(msg);
     prev_msg_ = msg;
@@ -388,7 +362,6 @@ bool Exchanger::findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const 
         max_distance = std::max(max_distance,distance3);
         max_distance = std::max(max_distance,distance4);
 
-//        double mean_distance = (distance1 + distance2 + distance3 + distance4) / 4;
         double variance = (pow(distance1 - max_distance, 2) + pow(distance2 - max_distance, 2) + pow(distance3 - max_distance, 2) + pow(distance4 - max_distance, 2)) / 4;
         point_variance_vec.emplace_back(points_vec, variance);
     }
@@ -434,9 +407,6 @@ void Exchanger::imgProcess() {
         std::vector<cv::Point2i> approx_points;
         cv::approxPolyDP(hull, approx_points, triangle_approx_epsilon_, true);
         if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && cv::contourArea(hull) >= min_triangle_threshold_ && approx_points.size() > 1)
-//        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_ && cv::contourArea(hull) >= min_triangle_threshold_ && (approx_points.size() == 3 || approx_points.size() == 2))
-//        if (cv::matchShapes(hull, temp_triangle_hull_, cv::CONTOURS_MATCH_I2, 0) <= triangle_moment_bias_)
-//        if (cv::contourArea(hull) >= min_triangle_threshold_ && approx_points.size() > 1)
         {
             for (auto &point : approx_points) cv::circle(cv_image_->image,point,3,cv::Scalar(255,255,255),3);
             int cx = int(moment.m10 / moment.m00);
@@ -479,7 +449,6 @@ void Exchanger::imgProcess() {
         }
 
         // get pnp
-
         bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
         else cv::solvePnP(w_points1_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
@@ -560,22 +529,18 @@ void Exchanger::imgProcess() {
             cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 255, 0),2);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,255),3);
         }
-
         // get pnp
-
         bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
         else cv::solvePnP(w_points1_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
-
     else
     {
         poseNonSensePnP();
     }
 }
-
 
 int main(int argc, char **argv) {
     ros::init(argc, argv, "exchanger_node");
