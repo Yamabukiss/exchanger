@@ -54,6 +54,7 @@
   <exec_depend>roscpp</exec_depend>
   <depend>cv_bridge</depend>
   <depend>nodelet</depend>
+  <depend>rm_msgs</depend>
   <depend>dynamic_reconfigure</depend>
 
 

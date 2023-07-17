@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
         pluginlib
         dynamic_reconfigure
         tf
+        rm_msgs
         )
 
 find_package(OpenCV REQUIRED)
