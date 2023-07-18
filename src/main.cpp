@@ -226,12 +226,11 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
         ROS_INFO_STREAM("check is map not exist");
         return;
     }
-    tf::Transform transform, original_transform, pnp_transform;
+    tf::Transform transform, pnp_transform;
     transform.setOrigin(tf::Vector3(pose_out.transform.translation.x, pose_out.transform.translation.y,
                                     pose_out.transform.translation.z));
     transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
                                          pose_out.transform.rotation.z, pose_out.transform.rotation.w));
-    original_transform = transform;
     pnp_transform.setOrigin(tf::Vector3(tvec.at<double>(0,0), tvec.at<double>(0,1),
                                         tvec.at<double>(0,2)));
     pnp_transform.setRotation(tf::Quaternion(tf_quaternion.x(), tf_quaternion.y(),
@@ -263,7 +262,6 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     pnp_publisher_.publish(msg);
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(original_transform, ros::Time::now(), "map", "original_exchanger"));
     tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_optical_frame", "pnp_exchanger"));
 }
 
