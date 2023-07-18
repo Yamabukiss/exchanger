@@ -232,10 +232,10 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
                                          pose_out.transform.rotation.z, pose_out.transform.rotation.w));
     original_transform = transform;
-    pnp_transform.setOrigin(tf::Vector3(pose_in.transform.translation.x, pose_in.transform.translation.y,
-                                        pose_in.transform.translation.z));
-    pnp_transform.setRotation(tf::Quaternion(pose_in.transform.rotation.x, pose_in.transform.rotation.y,
-                                             pose_in.transform.rotation.z, pose_in.transform.rotation.w));
+    pnp_transform.setOrigin(tf::Vector3(tvec.at<double>(0,0), tvec.at<double>(0,1),
+                                        tvec.at<double>(0,2)));
+    pnp_transform.setRotation(tf::Quaternion(tf_quaternion.x(), tf_quaternion.y(),
+                                             tf_quaternion.z(), tf_quaternion.w()));
     double roll_temp, pitch_temp, yaw_temp;
     quatToRPY(pose_out.transform.rotation, roll_temp, pitch_temp, yaw_temp);
     roll_temp +=CV_PI/2;
@@ -265,8 +265,6 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
     tf_broadcaster_.sendTransform(tf::StampedTransform(original_transform, ros::Time::now(), "map", "original_exchanger"));
     tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_optical_frame", "pnp_exchanger"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_link", "link_pnp_exchanger"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "pitch", "pitch_pnp_exchanger"));
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
