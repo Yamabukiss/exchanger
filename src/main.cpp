@@ -180,14 +180,12 @@ bool Exchanger::checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec)
 void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 {
     cv::Mat r_mat = cv::Mat_<double>(3, 3);
-
     if (rvec.empty())
     {
         ROS_INFO("opencv mat bug,return and pose nonsense pnp");
         poseNonSensePnP();
         return;
     }
-
     // the projection for the center of exchanger
     cv::Point3f point_o(0, 0, 0);
     cv::Point2f projected_point;
@@ -206,47 +204,38 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
                                    r_mat.at<double>(1, 0), r_mat.at<double>(1, 1), r_mat.at<double>(1, 2),
                                    r_mat.at<double>(2, 0), r_mat.at<double>(2, 1), r_mat.at<double>(2, 2));
 
-    tf::Quaternion quaternion;
-    double r;
-    double p;
-    double y;
-
+    double r,p,y;
     tf_rotate_matrix.getRPY(r, p, y);
-    quaternion.setRPY(r,p,y);
-
     // upon for the origin pose and translation
     geometry_msgs::TransformStamped pose_in, pose_out;
 
     tf2::Quaternion tf_quaternion;
-    //here for the tfListener
     tf_quaternion.setRPY(r,p,y);
 
     geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion); // tmp for the pose
     pose_in.transform.translation.x = tvec.at<double>(0,0);
     pose_in.transform.translation.y = tvec.at<double>(0,1);
     pose_in.transform.translation.z = tvec.at<double>(0,2);
-
-    pose_in.transform.rotation.x = quat_msg.x;
-    pose_in.transform.rotation.y = quat_msg.y;
-    pose_in.transform.rotation.z = quat_msg.z;
-    pose_in.transform.rotation.w = quat_msg.w;
+    pose_in.transform.rotation = quat_msg;
     try
     {
         tf2::doTransform(pose_in, pose_out, tf_buffer_.lookupTransform("map", "camera_optical_frame", ros::Time(0)));
-
     }
     catch (tf2::TransformException& ex)
     {
-        ROS_INFO_STREAM("tf error from ros");
+        ROS_INFO_STREAM("check is map not exist");
         return;
     }
-
-    tf::Transform transform;
+    tf::Transform transform, original_transform, pnp_transform;
     transform.setOrigin(tf::Vector3(pose_out.transform.translation.x, pose_out.transform.translation.y,
                                     pose_out.transform.translation.z));
     transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
                                          pose_out.transform.rotation.z, pose_out.transform.rotation.w));
-
+    original_transform = transform;
+    pnp_transform.setOrigin(tf::Vector3(pose_in.transform.translation.x, pose_in.transform.translation.y,
+                                        pose_in.transform.translation.z));
+    pnp_transform.setRotation(tf::Quaternion(pose_in.transform.rotation.x, pose_in.transform.rotation.y,
+                                             pose_in.transform.rotation.z, pose_in.transform.rotation.w));
     double roll_temp, pitch_temp, yaw_temp;
     quatToRPY(pose_out.transform.rotation, roll_temp, pitch_temp, yaw_temp);
     roll_temp +=CV_PI/2;
@@ -262,7 +251,6 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     msg.flag = 1;
     if (shape_signal_) msg.shape = 1;
     else msg.shape = 0;
-
     msg.pose.position.x=pose_out.transform.translation.x;
     msg.pose.position.y=pose_out.transform.translation.y;
     msg.pose.position.z=pose_out.transform.translation.z;
@@ -275,6 +263,10 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     pnp_publisher_.publish(msg);
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(original_transform, ros::Time::now(), "map", "original_exchanger"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_optical_frame", "pnp_exchanger"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_link", "link_pnp_exchanger"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "pitch", "pitch_pnp_exchanger"));
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
@@ -412,7 +404,7 @@ void Exchanger::imgProcess() {
     std::vector<cv::Point2i> combination_result_vec;
     bool rect_signal = findRectPoints(rect_points_vec, inline_points_vec, combination_result_vec);
 
-    if (polygon_signal)
+    if (polygon_signal && tf_update_)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(inline_points_vec);
         cv::Point2f vertex[4];
@@ -438,7 +430,7 @@ void Exchanger::imgProcess() {
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
-    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_)
+    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_ && tf_update_)
     {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
