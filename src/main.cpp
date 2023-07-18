@@ -8,15 +8,16 @@ void Exchanger::onInit()
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
     pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>("pnp_publisher", 1);
-    w_points2_vec_.reserve(4);
-    w_points1_vec_.reserve(4);
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
-    server_.setCallback(callback_);
-
+    //camera matrix
     camera_matrix_ = (cv::Mat_<float>(3, 3) << 1811.208049,    0.     ,  692.262792,
             0.     , 1811.768707,  576.194205,
             0.     ,    0.     ,    1.     );
     distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.079091 ,0.108809 ,-0.000094, -0.000368, 0.000000);
+
+    w_points1_vec_.reserve(4);
+    w_points2_vec_.reserve(4);
+    server_.setCallback(callback_);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
     w_points1_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
@@ -95,10 +96,18 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     blue_upper_hsv_v_=config.blue_upper_hsv_v;
     min_triangle_threshold_=config.min_triangle_threshold;
     max_variance_threshold_=config.max_variance_threshold;
+    w_points_xy_ = config.original_point;
     red_=config.red;
     small_offset_ = config.small_offset;
-    w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
-    w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
+    w_points1_vec_[0] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+    w_points1_vec_[1] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+    w_points1_vec_[2] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
+    w_points1_vec_[3] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+
+    w_points2_vec_[0] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+    w_points2_vec_[1] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+    w_points2_vec_[2] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+    w_points2_vec_[3] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
 }
 
 double square(double in)

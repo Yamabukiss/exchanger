@@ -85,6 +85,7 @@ public:
     bool direction_signal_;
     double triangle_moment_bias_;
     double small_offset_;
+    double w_points_xy_;
     int triangle_approx_epsilon_;
     std::vector<cv::Point3f> w_points1_vec_;
     std::vector<cv::Point3f> w_points2_vec_;
