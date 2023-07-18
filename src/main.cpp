@@ -153,28 +153,20 @@ int Exchanger::findMatchPoint(const cv::Point2f &rotate_point, const std::vector
     return dist_vec[0].first;
 }
 
-//inline int Exchanger::calculateDistance(const cv::Point2i &p1, const cv::Point2i &p2)
-//{
-//    return sqrt(pow((p1.x-p2.x),2) + pow((p1.y-p2.y),2));
-//}
-
 inline bool Exchanger::checkSequence(const cv::Point2i &p1, const cv::Point2i &p2, const cv::Point2i &p3)
 {
-    if (p1.x>p3.x) return true;
-    else return false;
+    return (p1.x > p3.x);
 }
 
 inline bool Exchanger::checkArrowSequence(const cv::Point2i &p1, const cv::Point2i &p2, const cv::Point2i &p3)
 {
     if (direction_signal_)
     {
-        if (p1.y>p3.y && p1.x<p2.x) return true;
-        else return false;
+        return (p1.y > p3.y && p1.x < p2.x);
     }
     else
     {
-        if (p1.y > p2.y && p1.y > p3.y) return true;
-        else return false;
+        return (p1.y > p2.y && p1.y > p3.y);
     }
 }
 
@@ -182,8 +174,7 @@ bool Exchanger::checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec)
 {
     if (hull_vec.size() == 1) return true;
     std::sort(hull_vec.begin(),hull_vec.end(),[](const auto &v1,const auto &v2){return cv::contourArea(v1)>cv::contourArea(v2);});
-    if (cv::contourArea(hull_vec[0])>=3*cv::contourArea(hull_vec[1])) return true;
-    else return false;
+    return cv::contourArea(hull_vec[0]) >= 3 * cv::contourArea(hull_vec[1]);
 }
 
 void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
@@ -305,7 +296,6 @@ void Exchanger::getLongLength(int *llength_index, const std::vector<cv::Point2f>
         llength_index[0] = 0;
         llength_index[1] = 2;
     }
-
 }
 
 inline void Exchanger::poseNonSensePnP()
@@ -332,14 +322,12 @@ void Exchanger::combinationSolver(const std::vector<cv::Point2i> &inline_points_
         combination_save_vec.emplace_back(combination_vec);
         return;
     }
-
     for (int i = start; i<= inline_points_vec.size()- k; i++)
     {
         combination_vec.emplace_back(inline_points_vec[i]);
         combinationSolver(inline_points_vec, i+1, k-1, combination_vec,combination_save_vec);
         combination_vec.pop_back();
     }
-
 }
 
 bool Exchanger::findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const std::vector<cv::Point2i> &inline_points_vec, std::vector<cv::Point2i> &combination_result_vec)
@@ -357,11 +345,7 @@ bool Exchanger::findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const 
         double distance2 = getLineLength(points_vec[1], middle_point);
         double distance3 = getLineLength(points_vec[2], middle_point);
         double distance4 = getLineLength(points_vec[3], middle_point);
-
-        double max_distance = std::max(distance1,distance2);
-        max_distance = std::max(max_distance,distance3);
-        max_distance = std::max(max_distance,distance4);
-
+        double max_distance = std::max(std::max(distance1,distance2),std::max(distance3,distance4));
         double variance = (pow(distance1 - max_distance, 2) + pow(distance2 - max_distance, 2) + pow(distance3 - max_distance, 2) + pow(distance4 - max_distance, 2)) / 4;
         point_variance_vec.emplace_back(points_vec, variance);
     }
@@ -378,7 +362,7 @@ bool Exchanger::findRectPoints(std::vector<cv::Point2i> &rect_points_vec, const 
 void Exchanger::imgProcess() {
     //segementation
     auto *mor_ptr = new cv::Mat();
-    auto * hsv_ptr= new cv::Mat();
+    auto *hsv_ptr= new cv::Mat();
     auto *binary_ptr = new cv::Mat();
     cv::cvtColor(cv_image_->image, *hsv_ptr, cv::COLOR_BGR2HSV);
     if (red_)
@@ -444,10 +428,9 @@ void Exchanger::imgProcess() {
         for (int i = 0;i<4 ;i++)
         {
             pixel_points_vec.emplace_back(match_points[i]);
-            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200),2);
+            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200), 2, cv::LINE_AA);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,0),3);
         }
-
         // get pnp
         bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
@@ -455,7 +438,6 @@ void Exchanger::imgProcess() {
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
-
     else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_)
     {
         std::vector<cv::Point2f> approx_points;
@@ -509,7 +491,6 @@ void Exchanger::imgProcess() {
             poseNonSensePnP();
         }
     }
-
     else if (rect_signal && tf_update_)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(combination_result_vec);
@@ -526,7 +507,7 @@ void Exchanger::imgProcess() {
         for (int i = 0;i<4 ;i++)
         {
             pixel_points_vec.emplace_back(match_points[i]);
-            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 255, 0),2);
+            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 255, 0),2,cv::LINE_AA);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,255),3);
         }
         // get pnp
