@@ -96,9 +96,9 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     blue_upper_hsv_v_=config.blue_upper_hsv_v;
     min_triangle_threshold_=config.min_triangle_threshold;
     max_variance_threshold_=config.max_variance_threshold;
-    w_points_xy_ = config.original_point;
     red_=config.red;
     small_offset_ = config.small_offset;
+    w_points_xy_ = config.w_points_xy;
     w_points1_vec_[0] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
     w_points1_vec_[1] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
     w_points1_vec_[2] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
