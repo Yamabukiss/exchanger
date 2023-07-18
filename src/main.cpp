@@ -428,7 +428,7 @@ void Exchanger::imgProcess() {
         for (int i = 0;i<4 ;i++)
         {
             pixel_points_vec.emplace_back(match_points[i]);
-            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200), 2, cv::LINE_AA);
+            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200), 2,  cv::LINE_AA);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,0),3);
         }
         // get pnp
@@ -507,7 +507,7 @@ void Exchanger::imgProcess() {
         for (int i = 0;i<4 ;i++)
         {
             pixel_points_vec.emplace_back(match_points[i]);
-            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 255, 0),2,cv::LINE_AA);
+            cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 255, 0),2, cv::LINE_AA);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,255),3);
         }
         // get pnp
