@@ -56,9 +56,15 @@ public:
 
     bool tf_update_;
     bool red_;
+
     int morph_type_;
     int morph_iterations_;
     int morph_size_;
+
+    int contrast_morph_type_;
+    int contrast_morph_iterations_;
+    int contrast_morph_size_;
+
     int arrow_area_threshold_;
     int min_triangle_threshold_;
 
@@ -85,6 +91,7 @@ public:
     bool direction_signal_;
     double triangle_moment_bias_;
     double small_offset_;
+    double w_points_xy_;
     int triangle_approx_epsilon_;
     std::vector<cv::Point3f> w_points1_vec_;
     std::vector<cv::Point3f> w_points2_vec_;
@@ -100,4 +107,7 @@ public:
     ros::Publisher pnp_publisher_;
     tf2_ros::Buffer tf_buffer_;
     tf::TransformBroadcaster tf_broadcaster_;
+    //Use for contrast
+    bool is_contrast_;
+    std::string pub_tf_name_,pub_binary_name_,pub_segmentation_name_,pub_camera_pos_name_,pub_pnp_name_;
 };
