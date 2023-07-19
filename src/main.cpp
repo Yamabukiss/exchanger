@@ -2,12 +2,15 @@
 
 void Exchanger::onInit()
 {
+    //Sub
     img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Exchanger::receiveFromCam,this);
     tf_updated_subscriber_ = nh_.subscribe("/is_update_exchanger", 1, &Exchanger::receiveFromEng, this);
-    binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_binary_publisher", 1);
-    segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
-    camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
-    pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>("pnp_publisher", 1);
+    //Pub
+    binary_publisher_ = nh_.advertise<sensor_msgs::Image>(pub_binary_name_, 1);
+    segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>(pub_segmentation_name_, 1);
+    camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>(pub_camera_pos_name_, 1);
+    pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>(pub_pnp_name_, 1);
+    //Callback
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
     //camera matrix
     camera_matrix_ = (cv::Mat_<float>(3, 3) << 1811.208049,    0.     ,  692.262792,
@@ -18,14 +21,15 @@ void Exchanger::onInit()
     w_points1_vec_.reserve(4);
     w_points2_vec_.reserve(4);
     server_.setCallback(callback_);
-    w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
-    w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
-    w_points1_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
-    w_points1_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
-    w_points2_vec_.push_back(cv::Point3f(0.120,0.120,0)); //rb
-    w_points2_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
-    w_points2_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
-    w_points2_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
+    w_points1_vec_.push_back(cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+    w_points1_vec_.push_back(cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+    w_points1_vec_.push_back(cv::Point3f(w_points_xy_, -1 * w_points_xy_, 0.)); //rt
+    w_points1_vec_.push_back(cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+
+    w_points2_vec_.push_back(cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+    w_points2_vec_.push_back(cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+    w_points2_vec_.push_back(cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+    w_points2_vec_.push_back(cv::Point3f(w_points_xy_, -1 * w_points_xy_, 0.)); //rt
 
     arrow_left_points1_vec_.reserve(4);
     arrow_left_points1_vec_.push_back(cv::Point3f(0,0.100,0));//bottom
@@ -76,6 +80,11 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     morph_type_ = config.morph_type;
     morph_iterations_ = config.morph_iterations;
     morph_size_=config.morph_size;
+
+    contrast_morph_type_ = config.contrast_morph_type;
+    contrast_morph_iterations_ = config.contrast_morph_iterations;
+    contrast_morph_size_=config.contrast_morph_size;
+
     save_on_=config.save_on;
     triangle_moment_bias_=config.triangle_moment_bias;
     triangle_approx_epsilon_=config.triangle_approx_epsilon;
@@ -99,15 +108,27 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     red_=config.red;
     small_offset_ = config.small_offset;
     w_points_xy_ = config.w_points_xy;
-    w_points1_vec_[0] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
-    w_points1_vec_[1] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
-    w_points1_vec_[2] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
-    w_points1_vec_[3] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+    if (!is_contrast_){
+        w_points1_vec_[0] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+        w_points1_vec_[1] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+        w_points1_vec_[2] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
+        w_points1_vec_[3] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
 
-    w_points2_vec_[0] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
-    w_points2_vec_[1] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
-    w_points2_vec_[2] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
-    w_points2_vec_[3] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
+        w_points2_vec_[0] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+        w_points2_vec_[1] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+        w_points2_vec_[2] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+        w_points2_vec_[3] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
+    } else{
+        w_points1_vec_[0] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+        w_points1_vec_[1] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+        w_points1_vec_[2] = (cv::Point3f(w_points_xy_, -1 * w_points_xy_ , 0.)); //rt
+        w_points1_vec_[3] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+
+        w_points2_vec_[0] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
+        w_points2_vec_[1] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
+        w_points2_vec_[2] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
+        w_points2_vec_[3] = (cv::Point3f(w_points_xy_, -1 * w_points_xy_, 0.)); //rt
+    }
 }
 
 double square(double in)
@@ -270,8 +291,8 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 
     pnp_publisher_.publish(msg);
     prev_msg_ = msg;
-    tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_optical_frame", "pnp_exchanger"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", pub_tf_name_));
+//    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_optical_frame", "pnp_exchanger"));
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
@@ -367,9 +388,16 @@ void Exchanger::imgProcess() {
     else
         cv::inRange(*hsv_ptr,cv::Scalar(blue_lower_hsv_h_,blue_lower_hsv_s_,blue_lower_hsv_v_),cv::Scalar(blue_upper_hsv_h_,blue_upper_hsv_s_,blue_upper_hsv_v_),*binary_ptr);
     delete hsv_ptr;
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * morph_size_, 1 + 2 * morph_size_),
-                                               cv::Point(-1, -1));
-    cv::morphologyEx(*binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
+    if (!is_contrast_)
+    {
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * morph_size_, 1 + 2 * morph_size_), cv::Point(-1, -1));
+        cv::morphologyEx(*binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
+    } else
+    {
+        cv::Mat contrast_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * contrast_morph_size_, 1 + 2 * contrast_morph_size_),
+                                                            cv::Point(-1, -1));
+        cv::morphologyEx(*binary_ptr, *mor_ptr, contrast_morph_type_, contrast_kernel, cv::Point(-1, -1), contrast_morph_iterations_);
+    }
     delete binary_ptr;
     binary_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(), "mono8", *mor_ptr).toImageMsg());
     // hsv contours process
@@ -522,8 +550,24 @@ void Exchanger::imgProcess() {
 
 int main(int argc, char **argv) {
     ros::init(argc, argv, "exchanger_node");
-    Exchanger Exchanger;
+    Exchanger Exchanger,Contrast;
+    //Use for contrast
+    Exchanger.pub_tf_name_ = "exchanger";
+    Exchanger.pub_binary_name_ = "exchanger_binary_publisher";
+    Exchanger.pub_segmentation_name_ = "exchanger_segmentation_publisher";
+    Exchanger.pub_camera_pos_name_ = "camera_pose_publisher";
+    Exchanger.pub_pnp_name_ = "pnp_publisher";
+    Exchanger.is_contrast_ = "false";
+    //Init contrast
+    Contrast.pub_tf_name_ = "contrast_exchanger";
+    Contrast.pub_binary_name_ = "contrast_exchanger_binary_publisher";
+    Contrast.pub_segmentation_name_ = "contrast_exchanger_segmentation_publisher";
+    Contrast.pub_camera_pos_name_ = "contrast_camera_pose_publisher";
+    Contrast.pub_pnp_name_ = "contrast_pnp_publisher";
+    Contrast.is_contrast_ = true;
+
     Exchanger.onInit();
+    Contrast.onInit();
     while (ros::ok())
     {
         ros::spinOnce();
