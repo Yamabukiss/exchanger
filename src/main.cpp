@@ -263,9 +263,9 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     if (shape_signal_) msg.shape = 1;
     else msg.shape = 0;
 
-    msg.pose.position.x=pose_out.transform.translation.x;
-    msg.pose.position.y=pose_out.transform.translation.y;
-    msg.pose.position.z=pose_out.transform.translation.z;
+    msg.pose.position.x=pose_in.transform.translation.x;
+    msg.pose.position.y=pose_in.transform.translation.y;
+    msg.pose.position.z=pose_in.transform.translation.z;
 
     msg.pose.orientation.x=tmp_quat_msg.x;
     msg.pose.orientation.y=tmp_quat_msg.y;
