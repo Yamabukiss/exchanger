@@ -412,7 +412,7 @@ void Exchanger::imgProcess() {
     std::vector<cv::Point2i> combination_result_vec;
     bool rect_signal = findRectPoints(rect_points_vec, inline_points_vec, combination_result_vec);
 
-    if (polygon_signal)
+    if (polygon_signal && tf_update_)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(inline_points_vec);
         cv::Point2f vertex[4];
@@ -438,7 +438,7 @@ void Exchanger::imgProcess() {
         shape_signal_ = true;
         getPnP(exchanger_rvec_,exchanger_tvec_);
     }
-    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_)
+    else if (!hull_vec.empty() && checkArrow(hull_vec) && cv::contourArea(hull_vec[0]) > arrow_area_threshold_ && tf_update_)
     {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
