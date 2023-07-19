@@ -8,16 +8,15 @@ void Exchanger::onInit()
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
     camera_pose_publisher_ = nh_.advertise<geometry_msgs::TwistStamped>("camera_pose_publisher", 1);
     pnp_publisher_ = nh_.advertise<rm_msgs::ExchangerMsg>("pnp_publisher", 1);
+    w_points2_vec_.reserve(4);
+    w_points1_vec_.reserve(4);
     callback_ = boost::bind(&Exchanger::dynamicCallback, this, _1);
-    //camera matrix
+    server_.setCallback(callback_);
+
     camera_matrix_ = (cv::Mat_<float>(3, 3) << 1811.208049,    0.     ,  692.262792,
             0.     , 1811.768707,  576.194205,
             0.     ,    0.     ,    1.     );
     distortion_coefficients_=(cv::Mat_<float>(1,5) << -0.079091 ,0.108809 ,-0.000094, -0.000368, 0.000000);
-
-    w_points1_vec_.reserve(4);
-    w_points2_vec_.reserve(4);
-    server_.setCallback(callback_);
     w_points1_vec_.push_back(cv::Point3f(-0.120,0.120,0));//lb
     w_points1_vec_.push_back(cv::Point3f(-0.120,-0.120,0));//lt
     w_points1_vec_.push_back(cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0)); //rt
@@ -98,16 +97,8 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     max_variance_threshold_=config.max_variance_threshold;
     red_=config.red;
     small_offset_ = config.small_offset;
-    w_points_xy_ = config.w_points_xy;
-    w_points1_vec_[0] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
-    w_points1_vec_[1] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
-    w_points1_vec_[2] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
-    w_points1_vec_[3] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
-
-    w_points2_vec_[0] = (cv::Point3f(w_points_xy_, w_points_xy_, 0.)); //rb
-    w_points2_vec_[1] = (cv::Point3f(-1 * w_points_xy_, w_points_xy_, 0.));//lb
-    w_points2_vec_[2] = (cv::Point3f(-1 * w_points_xy_, -w_points_xy_, 0.));//lt
-    w_points2_vec_[3] = (cv::Point3f(w_points_xy_ + small_offset_, -1 * w_points_xy_ - small_offset_, 0.)); //rt
+    w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
+    w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
 }
 
 double square(double in)
@@ -189,12 +180,14 @@ bool Exchanger::checkArrow(std::vector<std::vector<cv::Point2i>> &hull_vec)
 void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 {
     cv::Mat r_mat = cv::Mat_<double>(3, 3);
+
     if (rvec.empty())
     {
         ROS_INFO("opencv mat bug,return and pose nonsense pnp");
         poseNonSensePnP();
         return;
     }
+
     // the projection for the center of exchanger
     cv::Point3f point_o(0, 0, 0);
     cv::Point2f projected_point;
@@ -213,37 +206,47 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
                                    r_mat.at<double>(1, 0), r_mat.at<double>(1, 1), r_mat.at<double>(1, 2),
                                    r_mat.at<double>(2, 0), r_mat.at<double>(2, 1), r_mat.at<double>(2, 2));
 
-    double r,p,y;
+    tf::Quaternion quaternion;
+    double r;
+    double p;
+    double y;
+
     tf_rotate_matrix.getRPY(r, p, y);
+    quaternion.setRPY(r,p,y);
+
     // upon for the origin pose and translation
     geometry_msgs::TransformStamped pose_in, pose_out;
 
     tf2::Quaternion tf_quaternion;
+    //here for the tfListener
     tf_quaternion.setRPY(r,p,y);
 
     geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion); // tmp for the pose
     pose_in.transform.translation.x = tvec.at<double>(0,0);
     pose_in.transform.translation.y = tvec.at<double>(0,1);
     pose_in.transform.translation.z = tvec.at<double>(0,2);
-    pose_in.transform.rotation = quat_msg;
+
+    pose_in.transform.rotation.x = quat_msg.x;
+    pose_in.transform.rotation.y = quat_msg.y;
+    pose_in.transform.rotation.z = quat_msg.z;
+    pose_in.transform.rotation.w = quat_msg.w;
     try
     {
         tf2::doTransform(pose_in, pose_out, tf_buffer_.lookupTransform("map", "camera_optical_frame", ros::Time(0)));
+
     }
     catch (tf2::TransformException& ex)
     {
-        ROS_INFO_STREAM("check is map not exist");
+        ROS_INFO_STREAM("tf error from ros");
         return;
     }
-    tf::Transform transform, pnp_transform;
+
+    tf::Transform transform;
     transform.setOrigin(tf::Vector3(pose_out.transform.translation.x, pose_out.transform.translation.y,
                                     pose_out.transform.translation.z));
     transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
                                          pose_out.transform.rotation.z, pose_out.transform.rotation.w));
-    pnp_transform.setOrigin(tf::Vector3(tvec.at<double>(0,0), tvec.at<double>(0,1),
-                                        tvec.at<double>(0,2)));
-    pnp_transform.setRotation(tf::Quaternion(tf_quaternion.x(), tf_quaternion.y(),
-                                             tf_quaternion.z(), tf_quaternion.w()));
+
     double roll_temp, pitch_temp, yaw_temp;
     quatToRPY(pose_out.transform.rotation, roll_temp, pitch_temp, yaw_temp);
     roll_temp +=CV_PI/2;
@@ -259,9 +262,10 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     msg.flag = 1;
     if (shape_signal_) msg.shape = 1;
     else msg.shape = 0;
-    msg.pose.position.x=pose_out.transform.translation.x;
-    msg.pose.position.y=pose_out.transform.translation.y;
-    msg.pose.position.z=pose_out.transform.translation.z;
+
+    msg.pose.position.x=pose_in.transform.translation.x;
+    msg.pose.position.y=pose_in.transform.translation.y;
+    msg.pose.position.z=pose_in.transform.translation.z;
 
     msg.pose.orientation.x=tmp_quat_msg.x;
     msg.pose.orientation.y=tmp_quat_msg.y;
@@ -271,7 +275,6 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     pnp_publisher_.publish(msg);
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(pnp_transform, ros::Time::now(), "camera_optical_frame", "pnp_exchanger"));
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
