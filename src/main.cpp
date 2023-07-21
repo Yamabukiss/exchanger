@@ -291,7 +291,7 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 
 
     tf::Transform real_transform;
-    real_transform.setOrigin(tf::Vector3(0.85, 0., 0.65));
+    real_transform.setOrigin(tf::Vector3(0.70, 0., 0.65));
     real_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
 
     tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
