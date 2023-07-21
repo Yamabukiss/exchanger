@@ -100,6 +100,13 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
     w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
     is_show_center_ = config.is_show_center;
+
+    x_offset_ = config.x_offset;
+    y_offset_ = config.y_offset;
+    z_offset_ = config.z_offset;
+    roll_offset_ = config.roll_offset;
+    pitch_offset_ = config.pitch_offset;
+    yaw_offset_ = config.yaw_offset;
 }
 
 double square(double in)
@@ -292,50 +299,13 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
 
     tf::Transform real_transform;
-    double z_high = 0.6715;
-    real_transform.setOrigin(tf::Vector3(0.80, 0., 0.6715));
-    real_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+    real_transform.setOrigin(tf::Vector3(x_offset_, y_offset_, z_offset_));
+    tf2::Quaternion real_quaternion;
+    real_quaternion.setRPY(roll_offset_,pitch_offset_,yaw_offset_);
+    real_transform.setRotation(tf::Quaternion(real_quaternion.x(), real_quaternion.y(), real_quaternion.z(), real_quaternion.w()));
 
     tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
 
-    tf::Transform lt_transform,lb_transform,rt_transform,rb_transform;
-    lt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
-    lt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    lb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
-    lb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    rt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
-    rt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    rb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
-    rb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    tf::Transform close_lt_transform,close_lb_transform,close_rt_transform,close_rb_transform;
-    close_lt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
-    close_lt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    close_lb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
-    close_lb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    close_rt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
-    close_rt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-
-    close_rb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
-    close_rb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(lt_transform, ros::Time::now(), "base_link", "lt"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(lb_transform, ros::Time::now(), "base_link", "lb"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(rt_transform, ros::Time::now(), "base_link", "rt"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(rb_transform, ros::Time::now(), "base_link", "rb"));
-
-    tf_broadcaster_.sendTransform(tf::StampedTransform(close_lt_transform, ros::Time::now(), "base_link", "close_lt"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(close_lb_transform, ros::Time::now(), "base_link", "close_lb"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(close_rt_transform, ros::Time::now(), "base_link", "close_rt"));
-    tf_broadcaster_.sendTransform(tf::StampedTransform(close_rb_transform, ros::Time::now(), "base_link", "close_rb"));
-//    tf::Transform real_link7_transform;
-//    real_link7_transform.setOrigin(tf::Vector3(0.53, 0.28, 0.71));
-//    real_link7_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
-//    tf_broadcaster_.sendTransform(tf::StampedTransform(real_link7_transform, ros::Time::now(), "base_link", "real_link7_z"));
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)

@@ -103,6 +103,7 @@ public:
     rm_msgs::ExchangerMsg prev_msg_;
     ros::Publisher pnp_publisher_;
     tf2_ros::Buffer tf_buffer_;
-    double pitch2optical_x_, pitch2optical_y_, pitch2optical_z_, pitch2optical_roll_, pitch2optical_pitch_, pitch2optical_yaw_;
     tf::TransformBroadcaster tf_broadcaster_;
+
+    double x_offset_,y_offset_,z_offset_,roll_offset_,pitch_offset_,yaw_offset_;
 };
