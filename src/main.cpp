@@ -200,7 +200,8 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     p_points_vector.emplace_back(projected_point);
 
     cv::projectPoints(w_points_vector, rvec, tvec, camera_matrix_, distortion_coefficients_, p_points_vector);
-    cv::circle(cv_image_->image, p_points_vector[0], 1, cv::Scalar(255, 255, 255), 1);
+    if(is_show_center_)
+        cv::circle(cv_image_->image, p_points_vector[0], 1, cv::Scalar(255, 255, 255), 1);
     
     cv::Rodrigues(rvec, r_mat);
     tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
