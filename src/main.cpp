@@ -273,8 +273,33 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     msg.pose.orientation.w=tmp_quat_msg.w;
 
     pnp_publisher_.publish(msg);
+
+//    double roll, pitch, yaw;
+//    quatToRPY(msg.pose.orientation, roll, pitch, yaw);
+//    ROS_INFO_STREAM("X:       " << msg.pose.position.x);
+//    ROS_INFO_STREAM("Y:       " << msg.pose.position.y);
+//    ROS_INFO_STREAM("Z:       " << msg.pose.position.z);
+//    ROS_INFO_STREAM("ROLL:    " << roll);
+//    ROS_INFO_STREAM("PITCH:   " << pitch);
+//    ROS_INFO_STREAM("YAW:     " << yaw);
+
+    msg.pose.position.x=pose_out.transform.translation.x;
+    msg.pose.position.y=pose_out.transform.translation.y;
+    msg.pose.position.z=pose_out.transform.translation.z;
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
+
+
+    tf::Transform real_transform;
+    real_transform.setOrigin(tf::Vector3(0.85, 0., 0.65));
+    real_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
+
+//    tf::Transform real_link7_transform;
+//    real_link7_transform.setOrigin(tf::Vector3(0.53, 0.28, 0.71));
+//    real_link7_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+//    tf_broadcaster_.sendTransform(tf::StampedTransform(real_link7_transform, ros::Time::now(), "base_link", "real_link7_z"));
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
@@ -443,7 +468,7 @@ void Exchanger::imgProcess() {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
         auto moment = cv::moments(hull_vec[0]);
-        if (approx_points.size() == 3 && tf_update_)
+        if (approx_points.size() == 3)
         {
             cv::Point2d centroid(moment.m10 / moment.m00, moment.m01 / moment.m00);
             int llength_index[2];

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ros/package.h>
+#include <urdf/model.h>
 #include <sensor_msgs/Image.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Bool.h>
@@ -101,5 +102,6 @@ public:
     rm_msgs::ExchangerMsg prev_msg_;
     ros::Publisher pnp_publisher_;
     tf2_ros::Buffer tf_buffer_;
+    double pitch2optical_x_, pitch2optical_y_, pitch2optical_z_, pitch2optical_roll_, pitch2optical_pitch_, pitch2optical_yaw_;
     tf::TransformBroadcaster tf_broadcaster_;
 };
