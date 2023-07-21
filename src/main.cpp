@@ -99,6 +99,7 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     small_offset_ = config.small_offset;
     w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
     w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
+    is_show_center_ = config.is_show_center;
 }
 
 double square(double in)
@@ -199,7 +200,7 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     p_points_vector.emplace_back(projected_point);
 
     cv::projectPoints(w_points_vector, rvec, tvec, camera_matrix_, distortion_coefficients_, p_points_vector);
-    cv::circle(cv_image_->image, p_points_vector[0], 2, cv::Scalar(255, 255, 255), 3);
+    cv::circle(cv_image_->image, p_points_vector[0], 1, cv::Scalar(255, 255, 255), 1);
     
     cv::Rodrigues(rvec, r_mat);
     tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
@@ -274,14 +275,14 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 
     pnp_publisher_.publish(msg);
 
-//    double roll, pitch, yaw;
-//    quatToRPY(msg.pose.orientation, roll, pitch, yaw);
-//    ROS_INFO_STREAM("X:       " << msg.pose.position.x);
-//    ROS_INFO_STREAM("Y:       " << msg.pose.position.y);
-//    ROS_INFO_STREAM("Z:       " << msg.pose.position.z);
-//    ROS_INFO_STREAM("ROLL:    " << roll);
-//    ROS_INFO_STREAM("PITCH:   " << pitch);
-//    ROS_INFO_STREAM("YAW:     " << yaw);
+    double roll, pitch, yaw;
+    quatToRPY(msg.pose.orientation, roll, pitch, yaw);
+    ROS_INFO_STREAM("X:       " << msg.pose.position.x);
+    ROS_INFO_STREAM("Y:       " << msg.pose.position.y);
+    ROS_INFO_STREAM("Z:       " << msg.pose.position.z);
+    ROS_INFO_STREAM("ROLL:    " << roll);
+    ROS_INFO_STREAM("PITCH:   " << pitch);
+    ROS_INFO_STREAM("YAW:     " << yaw);
 
     msg.pose.position.x=pose_out.transform.translation.x;
     msg.pose.position.y=pose_out.transform.translation.y;
@@ -289,13 +290,47 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
 
-
     tf::Transform real_transform;
-    real_transform.setOrigin(tf::Vector3(0.70, 0., 0.65));
+    double z_high = 0.6715;
+    real_transform.setOrigin(tf::Vector3(0.80, 0., 0.6715));
     real_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
 
     tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
 
+    tf::Transform lt_transform,lb_transform,rt_transform,rb_transform;
+    lt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
+    lt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    lb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
+    lb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    rt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
+    rt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    rb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
+    rb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    tf::Transform close_lt_transform,close_lb_transform,close_rt_transform,close_rb_transform;
+    close_lt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
+    close_lt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    close_lb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
+    close_lb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    close_rt_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high + 0.1));
+    close_rt_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+
+    close_rb_transform.setOrigin(tf::Vector3(0.80, 0.1, z_high - 0.1));
+    close_rb_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(lt_transform, ros::Time::now(), "base_link", "lt"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(lb_transform, ros::Time::now(), "base_link", "lb"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(rt_transform, ros::Time::now(), "base_link", "rt"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(rb_transform, ros::Time::now(), "base_link", "rb"));
+
+    tf_broadcaster_.sendTransform(tf::StampedTransform(close_lt_transform, ros::Time::now(), "base_link", "close_lt"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(close_lb_transform, ros::Time::now(), "base_link", "close_lb"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(close_rt_transform, ros::Time::now(), "base_link", "close_rt"));
+    tf_broadcaster_.sendTransform(tf::StampedTransform(close_rb_transform, ros::Time::now(), "base_link", "close_rb"));
 //    tf::Transform real_link7_transform;
 //    real_link7_transform.setOrigin(tf::Vector3(0.53, 0.28, 0.71));
 //    real_link7_transform.setRotation(tf::Quaternion(0., 0., 0., 1.));

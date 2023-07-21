@@ -56,6 +56,7 @@ public:
     dynamic_reconfigure::Server<exchanger::dynamicConfig>::CallbackType callback_;
 
     bool tf_update_;
+    bool is_show_center_;
     bool red_;
 
     int morph_type_;
