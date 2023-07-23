@@ -298,14 +298,6 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
 
-    tf::Transform real_transform;
-    real_transform.setOrigin(tf::Vector3(x_offset_, y_offset_, z_offset_));
-    tf2::Quaternion real_quaternion;
-    real_quaternion.setRPY(roll_offset_,pitch_offset_,yaw_offset_);
-    real_transform.setRotation(tf::Quaternion(real_quaternion.x(), real_quaternion.y(), real_quaternion.z(), real_quaternion.w()));
-
-    tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
-
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
@@ -443,6 +435,15 @@ void Exchanger::imgProcess() {
     std::vector<cv::Point2i> combination_result_vec;
     bool rect_signal = findRectPoints(rect_points_vec, inline_points_vec, combination_result_vec);
 
+
+    tf::Transform real_transform;
+    real_transform.setOrigin(tf::Vector3(x_offset_, y_offset_, z_offset_));
+    tf2::Quaternion real_quaternion;
+    real_quaternion.setRPY(roll_offset_,pitch_offset_,yaw_offset_);
+    real_transform.setRotation(tf::Quaternion(real_quaternion.x(), real_quaternion.y(), real_quaternion.z(), real_quaternion.w()));
+
+    tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
+
     if (polygon_signal && tf_update_)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(inline_points_vec);
@@ -562,5 +563,4 @@ int main(int argc, char **argv) {
     {
         ros::spinOnce();
     }
-
 }
