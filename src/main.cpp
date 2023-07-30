@@ -285,12 +285,12 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
 
     double roll, pitch, yaw;
     quatToRPY(msg.pose.orientation, roll, pitch, yaw);
-    ROS_INFO_STREAM("X:       " << msg.pose.position.x);
-    ROS_INFO_STREAM("Y:       " << msg.pose.position.y);
-    ROS_INFO_STREAM("Z:       " << msg.pose.position.z);
-    ROS_INFO_STREAM("ROLL:    " << roll);
-    ROS_INFO_STREAM("PITCH:   " << pitch);
-    ROS_INFO_STREAM("YAW:     " << yaw);
+//    ROS_INFO_STREAM("X:       " << msg.pose.position.x);
+//    ROS_INFO_STREAM("Y:       " << msg.pose.position.y);
+//    ROS_INFO_STREAM("Z:       " << msg.pose.position.z);
+//    ROS_INFO_STREAM("ROLL:    " << roll);
+//    ROS_INFO_STREAM("PITCH:   " << pitch);
+//    ROS_INFO_STREAM("YAW:     " << yaw);
 
     msg.pose.position.x=pose_out.transform.translation.x;
     msg.pose.position.y=pose_out.transform.translation.y;
