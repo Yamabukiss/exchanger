@@ -468,6 +468,7 @@ void Exchanger::imgProcess() {
         }
         exchange_msg_.middle_point.x = 720 - ((pixel_points_vec[0].x + pixel_points_vec[1].x + pixel_points_vec[2].x + pixel_points_vec[3].x) / 4 );
         exchange_msg_.middle_point.y = -1 * (540 - ((pixel_points_vec[0].y + pixel_points_vec[1].y + pixel_points_vec[2].y + pixel_points_vec[3].y) / 4 ));
+        ROS_INFO_STREAM(exchange_msg_.middle_point);
         // get pnp
         bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);

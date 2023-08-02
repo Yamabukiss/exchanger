@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ros/package.h>
-#include <urdf/model.h>
 #include <sensor_msgs/Image.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Bool.h>
