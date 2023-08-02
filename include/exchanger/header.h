@@ -104,6 +104,8 @@ public:
     ros::Publisher pnp_publisher_;
     tf2_ros::Buffer tf_buffer_;
     tf::TransformBroadcaster tf_broadcaster_;
+    geometry_msgs::Point middle_point_;
+    rm_msgs::ExchangerMsg exchange_msg_;
 
     double x_offset_,y_offset_,z_offset_,roll_offset_,pitch_offset_,yaw_offset_;
 };

@@ -281,7 +281,10 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     msg.pose.orientation.z=tmp_quat_msg.z;
     msg.pose.orientation.w=tmp_quat_msg.w;
 
-    pnp_publisher_.publish(msg);
+    exchange_msg_.flag = msg.flag;
+    exchange_msg_.pose = msg.pose;
+    exchange_msg_.shape = msg.shape;
+    pnp_publisher_.publish(exchange_msg_);
 
     double roll, pitch, yaw;
     quatToRPY(msg.pose.orientation, roll, pitch, yaw);
@@ -463,6 +466,8 @@ void Exchanger::imgProcess() {
             cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200), 2, cv::LINE_AA);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,0),3);
         }
+        exchange_msg_.middle_point.x = 720 - ((pixel_points_vec[0].x + pixel_points_vec[1].x + pixel_points_vec[2].x + pixel_points_vec[3].x) / 4 );
+        exchange_msg_.middle_point.y = -1 * (540 - ((pixel_points_vec[0].y + pixel_points_vec[1].y + pixel_points_vec[2].y + pixel_points_vec[3].y) / 4 ));
         // get pnp
         bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
