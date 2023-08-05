@@ -2,7 +2,7 @@
 
 void Exchanger::onInit()
 {
-    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Exchanger::receiveFromCam,this);
+    img_subscriber_= nh_.subscribe("/hk_camera/camera/image_raw", 1, &Exchanger::receiveFromCam,this);
     tf_updated_subscriber_ = nh_.subscribe("/is_update_exchanger", 1, &Exchanger::receiveFromEng, this);
     binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_binary_publisher", 1);
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
