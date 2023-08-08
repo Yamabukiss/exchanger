@@ -95,7 +95,6 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     blue_upper_hsv_v_=config.blue_upper_hsv_v;
     min_triangle_threshold_=config.min_triangle_threshold;
     max_variance_threshold_=config.max_variance_threshold;
-    red_=config.red;
     small_offset_ = config.small_offset;
     w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
     w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
@@ -389,17 +388,20 @@ void Exchanger::imgProcess() {
     //segementation
     auto *mor_ptr = new cv::Mat();
     auto *hsv_ptr= new cv::Mat();
-    auto *binary_ptr = new cv::Mat();
+    auto *red_binary_ptr = new cv::Mat();
+    auto *blue_binary_ptr = new cv::Mat();
+    auto *combined_binary_ptr = new cv::Mat();
     cv::cvtColor(cv_image_->image, *hsv_ptr, cv::COLOR_BGR2HSV);
-    if (red_)
-        cv::inRange(*hsv_ptr,cv::Scalar(red_lower_hsv_h_,red_lower_hsv_s_,red_lower_hsv_v_),cv::Scalar(red_upper_hsv_h_,red_upper_hsv_s_,red_upper_hsv_v_),*binary_ptr);
-    else
-        cv::inRange(*hsv_ptr,cv::Scalar(blue_lower_hsv_h_,blue_lower_hsv_s_,blue_lower_hsv_v_),cv::Scalar(blue_upper_hsv_h_,blue_upper_hsv_s_,blue_upper_hsv_v_),*binary_ptr);
+
+    cv::inRange(*hsv_ptr, cv::Scalar(red_lower_hsv_h_, red_lower_hsv_s_, red_lower_hsv_v_), cv::Scalar(red_upper_hsv_h_, red_upper_hsv_s_, red_upper_hsv_v_), *red_binary_ptr);
+    cv::inRange(*hsv_ptr, cv::Scalar(blue_lower_hsv_h_, blue_lower_hsv_s_, blue_lower_hsv_v_), cv::Scalar(blue_upper_hsv_h_, blue_upper_hsv_s_, blue_upper_hsv_v_), *blue_binary_ptr);
+    *combined_binary_ptr = *red_binary_ptr | *blue_binary_ptr;
+
     delete hsv_ptr;
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * morph_size_, 1 + 2 * morph_size_),
                                                cv::Point(-1, -1));
-    cv::morphologyEx(*binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
-    delete binary_ptr;
+    cv::morphologyEx(*combined_binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
+    delete combined_binary_ptr;
     binary_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(), "mono8", *mor_ptr).toImageMsg());
     // hsv contours process
     auto *contours_ptr = new std::vector<std::vector<cv::Point> >();

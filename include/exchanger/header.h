@@ -56,7 +56,6 @@ public:
 
     bool tf_update_;
     bool is_show_center_;
-    bool red_;
 
     int morph_type_;
     int morph_iterations_;
