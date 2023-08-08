@@ -482,7 +482,7 @@ void Exchanger::imgProcess() {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
         auto moment = cv::moments(hull_vec[0]);
-        if (approx_points.size() == 3)
+        if (approx_points.size() == 3 && tf_update)
         {
             cv::Point2d centroid(moment.m10 / moment.m00, moment.m01 / moment.m00);
             int llength_index[2];
