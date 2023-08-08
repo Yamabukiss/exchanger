@@ -55,7 +55,7 @@ public:
     dynamic_reconfigure::Server<exchanger::dynamicConfig>::CallbackType callback_;
 
     bool tf_update_;
-    bool red_;
+    bool is_show_center_;
 
     int morph_type_;
     int morph_iterations_;
@@ -102,4 +102,7 @@ public:
     ros::Publisher pnp_publisher_;
     tf2_ros::Buffer tf_buffer_;
     tf::TransformBroadcaster tf_broadcaster_;
+    rm_msgs::ExchangerMsg exchange_msg_;
+
+    double x_offset_,y_offset_,z_offset_,roll_offset_,pitch_offset_,yaw_offset_;
 };

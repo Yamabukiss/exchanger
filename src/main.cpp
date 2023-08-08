@@ -2,7 +2,7 @@
 
 void Exchanger::onInit()
 {
-    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Exchanger::receiveFromCam,this);
+    img_subscriber_= nh_.subscribe("/hk_camera/camera/image_raw", 1, &Exchanger::receiveFromCam,this);
     tf_updated_subscriber_ = nh_.subscribe("/is_update_exchanger", 1, &Exchanger::receiveFromEng, this);
     binary_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_binary_publisher", 1);
     segmentation_publisher_ = nh_.advertise<sensor_msgs::Image>("exchanger_segmentation_publisher", 1);
@@ -95,10 +95,17 @@ void Exchanger::dynamicCallback(exchanger::dynamicConfig &config)
     blue_upper_hsv_v_=config.blue_upper_hsv_v;
     min_triangle_threshold_=config.min_triangle_threshold;
     max_variance_threshold_=config.max_variance_threshold;
-    red_=config.red;
     small_offset_ = config.small_offset;
     w_points1_vec_[2] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
     w_points2_vec_[3] = (cv::Point3f(0.120 + small_offset_,-0.120 - small_offset_,0.)); //rt
+    is_show_center_ = config.is_show_center;
+
+    x_offset_ = config.x_offset;
+    y_offset_ = config.y_offset;
+    z_offset_ = config.z_offset;
+    roll_offset_ = config.roll_offset;
+    pitch_offset_ = config.pitch_offset;
+    yaw_offset_ = config.yaw_offset;
 }
 
 double square(double in)
@@ -199,7 +206,8 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     p_points_vector.emplace_back(projected_point);
 
     cv::projectPoints(w_points_vector, rvec, tvec, camera_matrix_, distortion_coefficients_, p_points_vector);
-    cv::circle(cv_image_->image, p_points_vector[0], 2, cv::Scalar(255, 255, 255), 3);
+    if(is_show_center_)
+        cv::circle(cv_image_->image, p_points_vector[0], 1, cv::Scalar(255, 255, 255), 1);
     
     cv::Rodrigues(rvec, r_mat);
     tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
@@ -272,9 +280,26 @@ void Exchanger::getPnP(const cv::Mat &rvec,const cv::Mat &tvec)
     msg.pose.orientation.z=tmp_quat_msg.z;
     msg.pose.orientation.w=tmp_quat_msg.w;
 
-    pnp_publisher_.publish(msg);
+    exchange_msg_.flag = msg.flag;
+    exchange_msg_.pose = msg.pose;
+    exchange_msg_.shape = msg.shape;
+    pnp_publisher_.publish(exchange_msg_);
+
+    double roll, pitch, yaw;
+    quatToRPY(msg.pose.orientation, roll, pitch, yaw);
+//    ROS_INFO_STREAM("X:       " << msg.pose.position.x);
+//    ROS_INFO_STREAM("Y:       " << msg.pose.position.y);
+//    ROS_INFO_STREAM("Z:       " << msg.pose.position.z);
+//    ROS_INFO_STREAM("ROLL:    " << roll);
+//    ROS_INFO_STREAM("PITCH:   " << pitch);
+//    ROS_INFO_STREAM("YAW:     " << yaw);
+
+    msg.pose.position.x=pose_out.transform.translation.x;
+    msg.pose.position.y=pose_out.transform.translation.y;
+    msg.pose.position.z=pose_out.transform.translation.z;
     prev_msg_ = msg;
     tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "exchanger"));
+
 }
 
 inline double Exchanger::getLineLength(const cv::Point2f &p1, const cv::Point2f &p2)
@@ -363,17 +388,20 @@ void Exchanger::imgProcess() {
     //segementation
     auto *mor_ptr = new cv::Mat();
     auto *hsv_ptr= new cv::Mat();
-    auto *binary_ptr = new cv::Mat();
+    auto *red_binary_ptr = new cv::Mat();
+    auto *blue_binary_ptr = new cv::Mat();
+    auto *combined_binary_ptr = new cv::Mat();
     cv::cvtColor(cv_image_->image, *hsv_ptr, cv::COLOR_BGR2HSV);
-    if (red_)
-        cv::inRange(*hsv_ptr,cv::Scalar(red_lower_hsv_h_,red_lower_hsv_s_,red_lower_hsv_v_),cv::Scalar(red_upper_hsv_h_,red_upper_hsv_s_,red_upper_hsv_v_),*binary_ptr);
-    else
-        cv::inRange(*hsv_ptr,cv::Scalar(blue_lower_hsv_h_,blue_lower_hsv_s_,blue_lower_hsv_v_),cv::Scalar(blue_upper_hsv_h_,blue_upper_hsv_s_,blue_upper_hsv_v_),*binary_ptr);
+
+    cv::inRange(*hsv_ptr, cv::Scalar(red_lower_hsv_h_, red_lower_hsv_s_, red_lower_hsv_v_), cv::Scalar(red_upper_hsv_h_, red_upper_hsv_s_, red_upper_hsv_v_), *red_binary_ptr);
+    cv::inRange(*hsv_ptr, cv::Scalar(blue_lower_hsv_h_, blue_lower_hsv_s_, blue_lower_hsv_v_), cv::Scalar(blue_upper_hsv_h_, blue_upper_hsv_s_, blue_upper_hsv_v_), *blue_binary_ptr);
+    *combined_binary_ptr = *red_binary_ptr | *blue_binary_ptr;
+
     delete hsv_ptr;
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * morph_size_, 1 + 2 * morph_size_),
                                                cv::Point(-1, -1));
-    cv::morphologyEx(*binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
-    delete binary_ptr;
+    cv::morphologyEx(*combined_binary_ptr, *mor_ptr, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
+    delete combined_binary_ptr;
     binary_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(), "mono8", *mor_ptr).toImageMsg());
     // hsv contours process
     auto *contours_ptr = new std::vector<std::vector<cv::Point> >();
@@ -412,6 +440,15 @@ void Exchanger::imgProcess() {
     std::vector<cv::Point2i> combination_result_vec;
     bool rect_signal = findRectPoints(rect_points_vec, inline_points_vec, combination_result_vec);
 
+
+    tf::Transform real_transform;
+    real_transform.setOrigin(tf::Vector3(x_offset_, y_offset_, z_offset_));
+    tf2::Quaternion real_quaternion;
+    real_quaternion.setRPY(roll_offset_,pitch_offset_,yaw_offset_);
+    real_transform.setRotation(tf::Quaternion(real_quaternion.x(), real_quaternion.y(), real_quaternion.z(), real_quaternion.w()));
+
+    tf_broadcaster_.sendTransform(tf::StampedTransform(real_transform, ros::Time::now(), "base_link", "real_world"));
+
     if (polygon_signal && tf_update_)
     {
         cv::RotatedRect rotate_rect=cv::minAreaRect(inline_points_vec);
@@ -431,6 +468,8 @@ void Exchanger::imgProcess() {
             cv::line(cv_image_->image, match_points[i], match_points[(i + 1) % 4], cv::Scalar(255, 100, 200), 2, cv::LINE_AA);
             cv::putText(cv_image_->image,std::to_string(i),match_points[i],1,3,cv::Scalar(0,255,0),3);
         }
+        exchange_msg_.middle_point.x = 720 - ((pixel_points_vec[0].x + pixel_points_vec[1].x + pixel_points_vec[2].x + pixel_points_vec[3].x) / 4 );
+        exchange_msg_.middle_point.y = -1 * (540 - ((pixel_points_vec[0].y + pixel_points_vec[1].y + pixel_points_vec[2].y + pixel_points_vec[3].y) / 4 ));
         // get pnp
         bool signal = checkSequence(match_points[0],match_points[1],match_points[2]);
         if (signal)  cv::solvePnP(w_points2_vec_,pixel_points_vec,camera_matrix_,distortion_coefficients_,exchanger_rvec_,exchanger_tvec_,bool(),cv::SOLVEPNP_ITERATIVE);
@@ -443,7 +482,7 @@ void Exchanger::imgProcess() {
         std::vector<cv::Point2f> approx_points;
         cv::approxPolyDP(hull_vec[0], approx_points, triangle_approx_epsilon_, true);
         auto moment = cv::moments(hull_vec[0]);
-        if (approx_points.size() == 3 && tf_update_)
+        if (approx_points.size() == 3)
         {
             cv::Point2d centroid(moment.m10 / moment.m00, moment.m01 / moment.m00);
             int llength_index[2];
@@ -531,5 +570,4 @@ int main(int argc, char **argv) {
     {
         ros::spinOnce();
     }
-
 }
